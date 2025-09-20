@@ -672,7 +672,7 @@ function getSmartErrorMessage(error, originalQuestion) {
             }
 
             // Prefill profile data
-            fetch('/api/me', { headers: { Authorization: `Bearer ${token}` }})
+                fetch('https://sakura-erp-backend.onrender.com/api/me', { headers: { Authorization: `Bearer ${token}` }})
               .then(r => r.json())
               .then(me => {
                 if (me && me.id) {
@@ -737,7 +737,7 @@ function getSmartErrorMessage(error, originalQuestion) {
                 if (!file || !token2) return;
                 const fd = new FormData();
                 fd.append('photo', file);
-                const res = await fetch('/api/me', { method: 'PUT', headers: { Authorization: `Bearer ${token2}` }, body: fd });
+                    const res = await fetch('https://sakura-erp-backend.onrender.com/api/me', { method: 'PUT', headers: { Authorization: `Bearer ${token2}` }, body: fd });
                 const data = await res.json();
                 if (res.ok && data.photo) {
                   localStorage.setItem('sakura_photo', data.photo);
@@ -762,7 +762,7 @@ function getSmartErrorMessage(error, originalQuestion) {
                   if (e) fd.append('email', e);
                   if (p) fd.append('password', p);
                   if (file) fd.append('photo', file);
-                  const res = await fetch('/api/me', { method: 'PUT', headers: { Authorization: `Bearer ${token}` }, body: fd });
+                    const res = await fetch('https://sakura-erp-backend.onrender.com/api/me', { method: 'PUT', headers: { Authorization: `Bearer ${token}` }, body: fd });
                   const data = await res.json();
                   if (!res.ok) throw new Error(data.error || 'Update failed');
                   if (data.photo) {
@@ -920,7 +920,7 @@ function getSmartErrorMessage(error, originalQuestion) {
           // Re-translate welcome message if user is logged in
           const token = localStorage.getItem('sakura_token');
           if (token) {
-            fetch('/api/me', { headers: { Authorization: `Bearer ${token}` }})
+                fetch('https://sakura-erp-backend.onrender.com/api/me', { headers: { Authorization: `Bearer ${token}` }})
               .then(r => r.json())
               .then(me => {
                 if (me && me.name) {
