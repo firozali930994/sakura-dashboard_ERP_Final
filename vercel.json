@@ -1,32 +1,15 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "backend/src/server.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "SakuraPortal/**",
-      "use": "@vercel/static"
-    }
-  ],
+  "buildCommand": "echo 'Build completed'",
+  "outputDirectory": "SakuraPortal",
   "routes": [
     {
-      "src": "/api/(.*)",
-      "dest": "/backend/src/server.js"
+      "src": "/",
+      "dest": "/index.html"
     },
     {
       "src": "/(.*)",
-      "dest": "/SakuraPortal/$1"
-    },
-    {
-      "src": "/",
-      "dest": "/SakuraPortal/index.html"
+      "dest": "/$1"
     }
-  ],
-  "functions": {
-    "backend/src/server.js": {
-      "maxDuration": 30
-    }
-  }
+  ]
 }
