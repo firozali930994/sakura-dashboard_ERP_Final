@@ -1,0 +1,20 @@
+# GitHub Upload Commands
+# Copy these commands and run in PowerShell/Command Prompt
+
+# Step 1: Initialize Git
+git init
+
+# Step 2: Add all files
+git add .
+
+# Step 3: Commit files
+git commit -m "Initial Sakura ERP System"
+
+# Step 4: Add remote repository (Replace YOUR_USERNAME with your GitHub username)
+git remote add origin https://github.com/YOUR_USERNAME/sakura-erp.git
+
+# Step 5: Push to GitHub
+git push -u origin main
+
+# After running these commands, your code will be on GitHub!
+# Then go to railway.app and deploy from GitHub repo

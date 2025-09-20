@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sakura Integrated Management Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Cairo', sans-serif; background-color: #f0f4f8; }
+        body.menu-open { overflow: hidden; }
+
+        .sidebar { background-color: #284b44; }
+        .sidebar a { transition: background-color 0.2s ease, border-left-color 0.2s ease, border-right-color 0.2s ease; }
+        .kpi-card { background-color: white; border-radius: 0.75rem; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06); padding: 1.5rem; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+        .kpi-card .value { font-size: 1.75rem; font-weight: 700; color: #1A202C; margin-top: 0.25rem; min-height: 36px; display: flex; align-items: center; justify-content: center;}
+        .loading-spinner { border: 4px solid rgba(0, 0, 0, 0.1); width: 36px; height: 36px; border-radius: 50%; border-left-color: #284b44; animation: spin 1s ease infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .gradient-header { background: linear-gradient(135deg, #284b44 0%, #956c2a 100%); color: white; }
+        
+        @property --p{ syntax: '<number>'; inherits: true; initial-value: 0; }
+        .health-gauge { width: 120px; height: 120px; border-radius: 50%; display: grid; place-items: center; background: conic-gradient(from 0deg, var(--c1) calc(var(--p) * 1%), var(--c2) 0); transition: --p 1s ease-in-out; }
+        .health-gauge::before { content: ""; display: block; width: 95px; height: 95px; background: white; border-radius: 50%; }
+        .health-score-text { position: absolute; font-size: 1.875rem; font-weight: 700; }
+        .aging-bar-bg { background-color: #e5e7eb; }
+        .aging-bar { transition: width 0.8s ease-out; }
+        .insight-card { background-color: #ffffff; border-left: 4px solid #956c2a; }
+        .analysis-card { background-color: #f8fafc; border-top: 3px solid; padding: 1rem; border-radius: 0.5rem; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .analysis-card .value { font-size: 1.5rem; font-weight: 700; }
+
+        .sidebar { transform: translateX(-100%); left: 0; }
+        .sidebar.open { transform: translateX(0); }
+        html[dir="rtl"] .sidebar { transform: translateX(100%); left: auto; right: 0; }
+        html[dir="rtl"] .sidebar.open { transform: translateX(0); }
+
+        .sidebar a { border-left: 4px solid transparent; }
+        .sidebar a:hover { background-color: #3a685e; }
+        .sidebar a.active { background-color: #956c2a; color: white; font-weight: 700; border-left-color: white; }
+        .sidebar span { margin-left: 1rem; flex-grow: 1; }
+        
+        html[dir="rtl"] .sidebar a { border-left: none; border-right: 4px solid transparent; }
+        html[dir="rtl"] .sidebar a:hover { border-right-color: #956c2a; }
+        html[dir="rtl"] .sidebar a.active { border-right-color: white; }
+        html[dir="rtl"] .sidebar span { margin-left: 0; margin-right: 1rem; }
+        html[dir="rtl"] .insight-card { border-left: none; border-right: 4px solid #956c2a; }
+        
+        .sidebar-overlay { display: none; position: fixed; inset: 0; background-color: rgba(0, 0, 0, 0.5); z-index: 40; }
+        .sidebar-overlay.open { display: block; }
+        
+        .modal-backdrop { transition: opacity 0.3s ease-in-out; }
+        .modal-content { transition: transform 0.3s ease-in-out, opacity 0.3s ease-in-out; }
+
+        #chat-toggle-button { position: fixed; bottom: 2rem; right: 2rem; background-color: #284b44; color: white; width: 60px; height: 60px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); cursor: pointer; z-index: 1000; transition: transform 0.2s ease; }
+        #chat-toggle-button:hover { transform: scale(1.1); }
+        html[dir="rtl"] #chat-toggle-button { right: auto; left: 2rem; }
+        #chat-window { position: fixed; bottom: 6.5rem; right: 2rem; width: 350px; height: 450px; background-color: white; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.25); display: flex; flex-direction: column; overflow: hidden; z-index: 999; transform-origin: bottom right; transition: transform 0.3s ease, opacity 0.3s ease; transform: scale(0.5); opacity: 0; pointer-events: none; }
+        html[dir="rtl"] #chat-window { right: auto; left: 2rem; transform-origin: bottom left; }
+        #chat-window.open { transform: scale(1); opacity: 1; pointer-events: auto; }
+        #chat-header { background: linear-gradient(135deg, #284b44 0%, #3a685e 100%); color: white; padding: 1rem; font-weight: bold; display: flex; align-items: center; gap: 0.75rem; }
+        #chat-messages { flex-grow: 1; padding: 1rem; overflow-y: auto; }
+        .chat-message { max-width: 85%; padding: 0.5rem 0.75rem; border-radius: 10px; margin-bottom: 0.5rem; line-height: 1.4; }
+        .chat-message.user { background-color: #956c2a; color: white; margin-left: auto; border-bottom-right-radius: 2px; }
+        .chat-message.ai { background-color: #f3f4f6; color: #1f2937; margin-right: auto; border-bottom-left-radius: 2px; }
+        html[dir="rtl"] .chat-message.user { margin-left: 0; margin-right: auto; border-bottom-right-radius: 10px; border-bottom-left-radius: 2px; }
+        html[dir="rtl"] .chat-message.ai { margin-right: 0; margin-left: auto; border-bottom-left-radius: 10px; border-bottom-right-radius: 2px; }
+        .chat-message.loading { display: flex; align-items: center; gap: 0.5rem; }
+        .typing-indicator span { height: 8px; width: 8px; background-color: #9ca3af; border-radius: 50%; display: inline-block; animation: bounce 1.4s infinite ease-in-out both; }
+        .typing-indicator span:nth-child(1) { animation-delay: -0.32s; }
+        .typing-indicator span:nth-child(2) { animation-delay: -0.16s; }
+        @keyframes bounce { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1.0); } }
+        #chat-form { display: flex; padding: 0.5rem; border-top: 1px solid #e5e7eb; }
+        #chat-input { flex-grow: 1; border: 1px solid #d1d5db; padding: 0.5rem; border-radius: 20px; outline: none; }
+        #chat-send { background: none; border: none; font-size: 1.5rem; color: #284b44; cursor: pointer; padding: 0.5rem; }
+
+        @media (min-width: 768px) {
+            .sidebar { position: static; transform: translateX(0) !important; }
+            #menu-toggle { display: none; }
+            .sidebar-overlay { display: none !important; }
+
+            .health-gauge { width: 150px; height: 150px; }
+            .health-gauge::before { width: 120px; height: 120px; }
+            .health-score-text { font-size: 2.25rem; }
+            .analysis-card .value { font-size: 1.75rem; }
+        }
+    </style>
+    <script src="https://apis.google.com/js/api.js"></script>
+</head>
+<body class="bg-gray-100">
+
+    <div class="relative flex h-screen overflow-hidden">
+        <div id="sidebar-overlay" class="sidebar-overlay"></div>
+        <aside id="sidebar" class="sidebar w-64 text-white flex-shrink-0 flex flex-col fixed inset-y-0 z-50 transition-transform duration-300 ease-in-out md:relative">
+            <div class="flex flex-col items-center justify-center p-6 border-b border-gray-700 gap-2">
+                <label for="sidebar-photo-input" class="cursor-pointer">
+                  <img id="sidebar-avatar" src="https://images.deliveryhero.io/image/hungerstation/restaurant/logo/8556a1377e5154c66adf844d9c5ecb9f.jpg" alt="Logo" class="h-16 w-16 rounded-full ring-2 ring-white object-cover">
+                </label>
+                <input id="sidebar-photo-input" type="file" accept="image/*" class="hidden" />
+                <div class="flex items-center gap-2">
+                  <div id="sidebar-upload-text" class="text-xs text-gray-300" data-key="upload_image">Upload your image</div>
+                  <button id="sidebar-remove" class="text-xs text-red-300 underline hidden" type="button" data-key="remove">Remove</button>
+                </div>
+                <div id="sidebar-welcome" class="text-xs text-gray-200 font-semibold hidden" data-key="welcome_user"></div>
+            </div>
+            <nav class="flex-grow p-4">
+                <a href="#" onclick="loadDashboard(event, 'home')" class="nav-link active flex items-center p-4 my-2 rounded-lg"><i class="fas fa-tachometer-alt w-6 text-center"></i><span data-key="home_portal">Home Portal</span></a>
+                <a href="#" onclick="loadDashboard(event, 'payable.html')" class="nav-link flex items-center p-4 my-2 rounded-lg"><i class="fas fa-file-invoice-dollar w-6 text-center"></i><span data-key="accounts_payable">Accounts Payable</span></a>
+                <a href="#" onclick="loadDashboard(event, 'forecasting.html')" class="nav-link flex items-center p-4 my-2 rounded-lg"><i class="fas fa-chart-line w-6 text-center"></i><span data-key="rm_forecasting">RM Forecasting</span></a>
+            </nav>
+
+            <div class="p-4 mt-auto border-t border-gray-700">
+                <a href="#" onclick="openSettingsModal(event)" class="flex items-center p-2 my-1 text-gray-300 rounded-lg hover:bg-white/10">
+                    <i class="fas fa-cog w-6 text-center"></i>
+                    <span data-key="settings">Settings</span>
+                </a>
+            </div>
+
+            <div class="p-4 text-center text-sm text-gray-400 border-t border-gray-700"><p data-key="portal_footer">Sakura Portal &copy; 2025</p></div>
+        </aside>
+
+        <main class="flex-1 flex flex-col overflow-y-auto">
+            <header class="gradient-header shadow-md p-4 flex items-center justify-between z-20 sticky top-0">
+                <div class="flex-1 flex justify-start">
+                    <button id="menu-toggle" class="md:hidden text-white text-2xl"><i class="fas fa-bars"></i></button>
+                </div>
+                <div class="flex items-center justify-center gap-3">
+                    <img src="https://images.deliveryhero.io/image/hungerstation/restaurant/logo/8556a1377e5154c66adf844d9c5ecb9f.jpg" alt="Small Logo" class="h-10 w-10 rounded-full ring-1 ring-white/50 object-cover">
+                    <h1 id="header-title" class="text-xl md:text-2xl font-bold text-white whitespace-nowrap" data-key="hub_title">Sakura Management Hub</h1>
+                </div>
+                <div class="flex-1 flex justify-end">
+                    <div class="hidden md:block">
+                        <div class="font-semibold text-white/90 text-xs md:text-base" id="current-date-time"></div>
+                    </div>
+                </div>
+            </header>
+            
+            <div class="flex-1 p-2 md:p-4">
+                <div id="home-screen">
+                    <div class="mb-6">
+                        <h2 class="text-2xl md:text-3xl font-bold text-gray-800" data-key="erp_command_center_title">ERP Command Center</h2>
+                        <p class="text-sm text-gray-500 mt-1" data-key="erp_command_center_subtitle">Integrated analytics for strategic decision-making.</p>
+                        <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6 mt-4">
+                            <div class="bg-white p-4 rounded-lg shadow-lg flex flex-col items-center justify-center">
+                                <h3 class="font-bold text-gray-700 mb-2" data-key="health_score_title">Working Capital Health</h3>
+                                <div class="relative"><div id="health-gauge" class="health-gauge relative"><div class="health-score-text flex items-center justify-center flex-col"><span id="health-score-value">--</span><span class="text-xs font-normal" data-key="score_out_of_100">/ 100</span></div></div></div>
+                                <p class="text-xs text-center text-gray-500 mt-2" data-key="health_score_desc">An overall score based on overdue debt, forecast accuracy, and capital efficiency.</p>
+                            </div>
+                            <div class="bg-white p-4 rounded-lg shadow-lg"><h3 class="font-bold text-gray-700 mb-3" data-key="aging_analysis_title">Payables Aging Analysis</h3><div class="space-y-3"><div><div class="flex justify-between text-sm mb-1"><span class="font-semibold text-green-700" data-key="current">Current</span><span class="font-mono text-xs sm:text-sm" id="aging-value-current">...</span></div><div class="aging-bar-bg w-full h-4 rounded-full overflow-hidden"><div id="aging-bar-current" class="aging-bar h-full bg-green-500" style="width: 0%;"></div></div></div><div><div class="flex justify-between text-sm mb-1"><span class="font-semibold text-red-700" data-key="overdue">Overdue</span><span class="font-mono text-xs sm:text-sm" id="aging-value-overdue">...</span></div><div class="aging-bar-bg w-full h-4 rounded-full overflow-hidden"><div id="aging-bar-overdue" class="aging-bar h-full bg-red-500" style="width: 0%;"></div></div></div></div></div>
+                            <div class="bg-white p-4 rounded-lg shadow-lg"><h3 class="font-bold text-gray-700 mb-2" data-key="recommendation_title">Recommendation Engine</h3><div class="flex items-start gap-3 bg-yellow-50 border border-yellow-200 p-3 rounded-lg h-full"><i class="fas fa-lightbulb text-2xl md:text-3xl text-yellow-500 mt-1"></i><div><p id="recommendation-text" class="text-sm text-gray-700"><span class="opacity-50" data-key="analyzing_data">Analyzing data...</span></p></div></div></div>
+                        </div>
+                    </div>
+                    <div class="mb-6"><h3 class="text-xl font-bold text-gray-700" data-key="key_metrics_title">Key Financial Metrics</h3><div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3"><div class="insight-card rounded-lg p-4 shadow-md flex items-start gap-4"><i class="fas fa-coins text-3xl md:text-4xl text-yellow-500 mt-1"></i><div><h3 class="font-semibold text-gray-800" data-key="cash_outflow_title">Total Near-Term Cash Outflow</h3><p class="text-2xl md:text-3xl font-bold text-red-600" id="insight-outflow"><span class="opacity-50">...</span></p><p class="text-xs text-gray-600" data-key="cash_outflow_desc">Combines current dues with the forecasted purchase budget.</p></div></div><div class="insight-card rounded-lg p-4 shadow-md flex items-start gap-4"><i class="fas fa-lock text-3xl md:text-4xl text-blue-500 mt-1"></i><div><h3 class="font-semibold text-gray-800" data-key="capital_efficiency_title">Non-Productive Capital</h3><p class="text-2xl md:text-3xl font-bold text-blue-600" id="insight-capital-risk"><span class="opacity-50">...</span></p><p class="text-xs text-gray-600" data-key="capital_efficiency_desc">Total cash tied up in overdue payments and overstocked items.</p></div></div></div></div>
+                    <div class="mb-8"><h3 class="text-xl font-bold text-gray-700" data-key="detailed_kpis_title">Detailed Performance Indicators</h3><div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mt-3"><div class="analysis-card border-orange-400 text-center"><h4 class="font-semibold text-sm text-gray-600" data-key="overdue_ratio_title">Overdue Ratio</h4><p class="value text-orange-500" id="insight-overdue-ratio"><span class="opacity-50">...</span></p></div><div class="analysis-card border-teal-400 text-center"><h4 class="font-semibold text-sm text-gray-600" data-key="accuracy_impact_title">1% Accuracy Impact</h4><p class="value text-teal-500" id="insight-accuracy-cost"><span class="opacity-50">...</span></p></div><div class="analysis-card border-purple-400 text-center"><h4 class="font-semibold text-sm text-gray-600" data-key="savings_power_title">Savings Power</h4><p class="value text-purple-500" id="insight-savings-impact"><span class="opacity-50">...</span></p></div><div class="analysis-card border-gray-400 text-center"><h4 class="font-semibold text-sm text-gray-600" data-key="avg_debt_title">Avg. Debt / Supplier</h4><p class="value text-gray-600" id="insight-avg-debt"><span class="opacity-50">...</span></p></div></div></div>
+                    <div class="mb-6"><h2 class="text-xl md:text-2xl font-bold text-gray-800" data-key="payable_summary">Accounts Payable Summary</h2><div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mt-4"><div class="kpi-card"><div class="icon bg-red-500"><i class="fas fa-dollar-sign"></i></div> <div><p class="title" data-key="total_dues">Total Dues</p><div id="kpi-payable-dues" class="value"><div class="loading-spinner"></div></div></div></div><div class="kpi-card"><div class="icon bg-blue-500"><i class="fas fa-users"></i></div> <div><p class="title" data-key="total_suppliers">Total Suppliers</p><div id="kpi-payable-suppliers" class="value"><div class="loading-spinner"></div></div></div></div><div class="kpi-card"><div class="icon bg-orange-500"><i class="fas fa-exclamation-triangle"></i></div> <div><p class="title" data-key="overdues">Overdues</p><div id="kpi-payable-overdues" class="value"><div class="loading-spinner"></div></div></div></div><div class="kpi-card"><div class="icon bg-purple-500"><i class="fas fa-file-invoice"></i></div> <div><p class="title" data-key="total_transactions">Total Transactions</p><div id="kpi-payable-tx" class="value"><div class="loading-spinner"></div></div></div></div></div></div>
+                    <div class="mb-6"><h2 class="text-xl md:text-2xl font-bold text-gray-800" data-key="forecasting_summary">Raw Material Forecasting Summary</h2><div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mt-4"><div class="kpi-card"><div class="icon" style="background-color: #956c2a;"><i class="fas fa-wallet"></i></div> <div><p class="title" data-key="net_purchase_budget">Net Purchase Budget</p><div id="kpi-forecast-budget" class="value"><div class="loading-spinner"></div></div></div></div><div class="kpi-card"><div class="icon" style="background-color: #284b44;"><i class="fas fa-shopping-cart"></i></div> <div><p class="title" data-key="items_to_purchase">Items to Purchase</p><div id="kpi-forecast-items" class="value"><div class="loading-spinner"></div></div></div></div><div class="kpi-card"><div class="icon bg-green-500"><i class="fas fa-piggy-bank"></i></div> <div><p class="title" data-key="potential_savings">Potential Savings</p><div id="kpi-forecast-savings" class="value"><div class="loading-spinner"></div></div></div></div><div class="kpi-card"><div class="icon bg-yellow-500"><i class="fas fa-box-open"></i></div> <div><p class="title" data-key="overstocked_value">Overstocked Value</p><div id="kpi-forecast-overstock" class="value"><div class="loading-spinner"></div></div></div></div><div class="kpi-card col-span-2 md:col-span-1"><div class="icon" style="background-color: #ea8990;"><i class="fas fa-bullseye"></i></div> <div><p class="title" data-key="forecast_accuracy">Forecast Accuracy</p><div id="kpi-forecast-accuracy" class="value"><div class="loading-spinner"></div></div></div></div></div></div>
+                </div>
+                <iframe id="dashboard-frame" class="w-full h-full rounded-lg shadow-inner hidden" src="" frameborder="0"></iframe>
+            </div>
+        </main>
+    </div>
+
+    <div id="settings-modal" class="hidden fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4 opacity-0 modal-backdrop">
+        <div id="settings-modal-content" class="bg-white rounded-xl shadow-2xl p-6 w-full max-w-md scale-95 opacity-0 modal-content">
+            <div class="flex justify-between items-center pb-3 border-b">
+                <h3 class="text-xl font-bold text-gray-800 flex items-center gap-2"><i class="fas fa-cog text-gray-500"></i><span data-key="settings">Settings</span></h3>
+                <button onclick="closeSettingsModal()" class="text-gray-400 hover:text-gray-800 text-2xl">&times;</button>
+            </div>
+            <div class="mt-6 text-center">
+                <label class="text-sm font-medium text-gray-700" data-key="language">Language</label>
+                <div class="flex justify-center border border-gray-200 rounded-lg p-1 bg-gray-50 w-min mx-auto mt-2">
+                    <button onclick="broadcastLanguageChange('en')" class="lang-btn-modal px-4 py-2 text-sm rounded-md font-bold" data-lang="en">English</button>
+                    <button onclick="broadcastLanguageChange('ar')" class="lang-btn-modal px-4 py-2 text-sm rounded-md" data-lang="ar">العربية</button>
+                </div>
+            </div>
+
+            <!-- Biometric Authentication Section -->
+            <div class="mt-8">
+              <h3 class="text-lg font-bold text-gray-800 mb-2">Biometric Authentication</h3>
+              <div class="bg-gray-50 p-4 rounded-lg">
+                <div class="flex items-center justify-between mb-3">
+                  <div class="flex items-center">
+                    <i class="fas fa-fingerprint text-2xl text-green-600 mr-3"></i>
+                    <div>
+                      <h5 class="font-semibold text-gray-800">Fingerprint & Face Recognition</h5>
+                      <p class="text-sm text-gray-600">Enable biometric login for faster access</p>
+                    </div>
+                  </div>
+                  <div class="flex items-center">
+                    <span id="biometric-status" class="text-sm text-gray-500 mr-3">Checking...</span>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                      <input type="checkbox" id="biometric-toggle" class="sr-only peer">
+                      <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-green-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
+                    </label>
+                  </div>
+                </div>
+                <div id="biometric-setup" class="hidden">
+                  <button id="setup-biometric" class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50">
+                    <i class="fas fa-fingerprint mr-2"></i>Setup Biometric Authentication
+                  </button>
+                </div>
+                <div id="biometric-info" class="hidden text-sm text-gray-600">
+                  <p><i class="fas fa-check-circle text-green-500 mr-2"></i>Biometric authentication is enabled</p>
+                  <p class="mt-1"><i class="fas fa-mobile-alt mr-2"></i>Works on mobile devices with fingerprint/face recognition</p>
+                </div>
+              </div>
+            </div>
+
+            <div class="mt-8">
+              <h3 class="text-lg font-bold text-gray-800 mb-2">My Profile</h3>
+              <form id="profileForm" class="space-y-3 text-left">
+                <div>
+                  <label class="text-sm text-gray-600">Name</label>
+                  <input id="pf_name" class="w-full border rounded px-3 py-2" />
+                </div>
+                <div>
+                  <label class="text-sm text-gray-600">Email</label>
+                  <input id="pf_email" type="email" class="w-full border rounded px-3 py-2" />
+                </div>
+                <div>
+                  <label class="text-sm text-gray-600">New Password</label>
+                  <input id="pf_password" type="password" class="w-full border rounded px-3 py-2" />
+                </div>
+                <div>
+                  <label class="text-sm text-gray-600">Photo</label>
+                  <input id="pf_photo" type="file" accept="image/*" class="w-full" />
+                </div>
+                <div class="flex gap-2 items-center">
+                  <button type="submit" class="bg-[#284b44] text-white px-4 py-2 rounded">Save</button>
+                  <span id="pf_msg" class="text-sm text-gray-500"></span>
+                </div>
+              </form>
+            </div>
+            <div class="mt-6 text-center">
+                <p class="text-xs text-gray-400" data-key="more_settings">More settings coming soon...</p>
+            </div>
+        </div>
+    </div>
+    
+    <div id="chat-window">
+        <div id="chat-header"><i class="fas fa-brain"></i><span data-key="ai_analyst_title">Sakura AI Analyst</span></div>
+        <div id="chat-messages"><div class="chat-message ai"><p data-key="ai_welcome_message">Hello! How can I help you analyze the dashboard data today?</p></div></div>
+        <form id="chat-form"><input type="text" id="chat-input" placeholder="Ask about the data..." autocomplete="off"><button type="submit" id="chat-send"><i class="fas fa-paper-plane"></i></button></form>
+    </div>
+    <div id="chat-toggle-button"><i class="fas fa-comment-dots"></i></div>
+
+    <script>
+        let currentLang = localStorage.getItem('portalLang') || 'en';
+        let payableDataStore = null;
+        let forecastingDataStore = null;
+        let payableDataDetail = { suppliers: [], invoices: [], purchases: [], payments: [] };
+        let forecastingDataDetail = { forecastDetails: [], tableData: [] };
+        const DATA_URL = "https://script.google.com/macros/s/AKfycbzHZcClyedsPH9RRUUagBC8Ezw-OGNaG0ELe-_N8HAf0eScHVFbhISY8YzrnzNgP6aQ/exec";
+        const GEMINI_API_KEY = "AIzaSyAJVYpHF2SZBm9uUViRW4Cykrc8Ls_zhoQ";
+
+        const i18n = {
+            en: {
+                home_portal: 'Home Portal', accounts_payable: 'Accounts Payable', rm_forecasting: 'RM Forecasting', portal_footer: 'Sakura Portal © 2025', hub_title: 'Sakura Management Hub (Dummy Data)',
+                upload_image: 'Upload your image', remove: 'Remove', welcome_user: 'Welcome, {name}', 
+                payable_title: 'Accounts Payable Dashboard', forecasting_title: 'Raw Material Forecasting & Budgeting',
+                settings: 'Settings', more_settings: 'More settings coming soon...', language: 'Language',
+                ai_analyst_title: "Sakura AI Analyst", ai_welcome_message: "Hello! How can I help you analyze the dashboard data today?", ai_thinking: "Thinking...",
+                erp_command_center_title: 'Command Center', erp_command_center_subtitle: 'Integrated analytics for strategic decision-making.',
+                health_score_title: 'Working Capital Health', score_out_of_100: '/ 100', health_score_desc: 'An overall score based on overdue debt, forecast accuracy, and capital efficiency.',
+                aging_analysis_title: 'Payables Aging Analysis', current: 'Current', overdue: 'Overdue',
+                recommendation_title: 'Recommendation Engine', analyzing_data: 'Analyzing data...',
+                rec_1_part_1: '<strong>Action:</strong> Utilize your ', rec_1_part_2: ' in potential savings to clear ', rec_1_part_3: ' of your overdue balance. This can improve supplier relations.',
+                rec_2_part_1: '<strong>Opportunity:</strong> Your non-productive capital (', rec_2_part_2: ') from overstock and overdues is significant. Improving forecasting can unlock this cash.',
+                rec_3: '<strong>Status:</strong> Financials are stable. No immediate critical actions are flagged. Continue monitoring forecasting accuracy.',
+                key_metrics_title: 'Key Financial Metrics', detailed_kpis_title: 'Detailed Performance Indicators',
+                cash_outflow_title: 'Total Near-Term Cash Outflow', cash_outflow_desc: 'Combines current dues with the forecasted purchase budget.',
+                capital_efficiency_title: 'Non-Productive Capital', capital_efficiency_desc: 'Total cash tied up in overdue payments and overstocked items.',
+                overdue_ratio_title: 'Overdue Ratio', accuracy_impact_title: '1% Accuracy Impact',
+                savings_power_title: 'Savings Power', avg_debt_title: 'Avg. Debt / Supplier',
+                payable_summary: 'Accounts Payable Summary', forecasting_summary: 'Raw Material Forecasting Summary', total_dues: 'Total Dues',
+                total_suppliers: 'Total Suppliers', overdues: 'Overdues', total_transactions: 'Total Transactions', net_purchase_budget: 'Net Purchase Budget',
+                items_to_purchase: 'Items to Purchase', potential_savings: 'Potential Savings', overstocked_value: 'Overstocked Value', forecast_accuracy: 'Forecast Accuracy'
+            },
+            ar: {
+                home_portal: 'البوابة الرئيسية', accounts_payable: 'الحسابات الدائنة', rm_forecasting: 'توقع المواد الخام', portal_footer: 'بوابة ساكورا © 2025', hub_title: 'مركز إدارة ساكورا (بيانات وهمية)',
+                upload_image: 'رفع صورتك', remove: 'إزالة', welcome_user: 'مرحباً، {name}', 
+                payable_title: 'لوحة تحكم الحسابات الدائنة', forecasting_title: 'توقع وميزانية المواد الخام',
+                settings: 'الإعدادات', more_settings: 'المزيد من الإعدادات قريبا...', language: 'اللغة',
+                ai_analyst_title: "محلل ساكورا الذكي", ai_welcome_message: "مرحباً! كيف يمكنني مساعدتك في تحليل بيانات لوحة التحكم اليوم؟", ai_thinking: "أفكر...",
+                erp_command_center_title: 'مركز قيادة ', erp_command_center_subtitle: 'تحليلات متكاملة لاتخاذ القرارات الاستراتيجية.',
+                health_score_title: 'سلامة رأس المال العامل', score_out_of_100: '/ 100', health_score_desc: 'مؤشر عام يعتمد على الديون المتأخرة ودقة التوقع وكفاءة رأس المال.',
+                aging_analysis_title: 'تحليل أعمار الحسابات الدائنة', current: 'حالي', overdue: 'متأخر',
+                recommendation_title: 'محرك التوصيات', analyzing_data: 'جاري تحليل البيانات...',
+                rec_1_part_1: '<strong>الإجراء:</strong> استفد من وفوراتك المحتملة البالغة ', rec_1_part_2: ' لتسوية ', rec_1_part_3: ' من رصيدك المتأخر. هذا يمكن أن يحسن علاقات الموردين.',
+                rec_2_part_1: '<strong>الفرصة:</strong> رأس مالك غير المنتج (', rec_2_part_2: ') من المخزون الزائد والمتأخرات كبير. تحسين التوقع يمكن أن يحرر هذه السيولة.',
+                rec_3: '<strong>الحالة:</strong> الأوضاع المالية مستقرة. لا توجد إجراءات حرجة مطلوبة حاليًا. استمر في مراقبة دقة التوقع.',
+                key_metrics_title: 'المقاييس المالية الرئيسية', detailed_kpis_title: 'مؤشرات الأداء التفصيلية',
+                cash_outflow_title: 'إجمالي التدفقات النقدية الخارجة قصيرة الأجل', cash_outflow_desc: 'يجمع بين المستحقات الحالية وميزانية الشراء المتوقعة.',
+                capital_efficiency_title: 'رأس المال غير المنتج', capital_efficiency_desc: 'إجمالي النقد المحجوز في المدفَات المتأخرة والمخزون الزائد.',
+                overdue_ratio_title: 'نسبة المتأخرات', accuracy_impact_title: 'تأثير دقة 1%',
+                savings_power_title: 'قوة التوفير', avg_debt_title: 'متوسط الدين/مورد',
+                payable_summary: 'ملخص الحسابات الدائنة', forecasting_summary: 'ملخص توقع المواد الخام', total_dues: 'إجمالي المستحقات',
+                total_suppliers: 'إجمالي الموردين', overdues: 'المتأخرات', total_transactions: 'إجمالي المعاملات', net_purchase_budget: 'صافي ميزانية الشراء',
+                items_to_purchase: 'الأصناف المطلوب شراؤها', potential_savings: 'التوفير المحتمل', overstocked_value: 'قيمة المخزون الزائد', forecast_accuracy: 'دقة التوقع'
+            }
+        };
+        
+        const mainIframe = document.getElementById('dashboard-frame');
+        const homeScreen = document.getElementById('home-screen');
+        const headerTitle = document.getElementById('header-title');
+        const navLinks = document.querySelectorAll('.nav-link');
+        const sidebar = document.getElementById('sidebar');
+        const menuToggle = document.getElementById('menu-toggle');
+        const sidebarOverlay = document.getElementById('sidebar-overlay');
+        const settingsModal = document.getElementById('settings-modal');
+        const settingsModalContent = document.getElementById('settings-modal-content');
+        const chatWindow = document.getElementById('chat-window');
+        const chatToggleButton = document.getElementById('chat-toggle-button');
+        const chatForm = document.getElementById('chat-form');
+        const chatInput = document.getElementById('chat-input');
+        const chatMessages = document.getElementById('chat-messages');
+
+        function openSettingsModal(event) { event.preventDefault(); settingsModal.classList.remove('hidden'); setTimeout(() => { settingsModal.classList.remove('opacity-0'); settingsModalContent.classList.remove('scale-95', 'opacity-0'); }, 10); if (window.innerWidth < 768 && sidebar.classList.contains('open')) { toggleMenu(); } }
+        function closeSettingsModal() { settingsModal.classList.add('opacity-0'); settingsModalContent.classList.add('scale-95', 'opacity-0'); setTimeout(() => { settingsModal.classList.add('hidden'); }, 300); }
+        settingsModal.addEventListener('click', function(event) { if (event.target === settingsModal) { closeSettingsModal(); } });
+        function toggleMenu() { sidebar.classList.toggle('open'); sidebarOverlay.classList.toggle('open'); document.body.classList.toggle('menu-open'); }
+        menuToggle.addEventListener('click', toggleMenu);
+        sidebarOverlay.addEventListener('click', toggleMenu);
+        
+        chatToggleButton.addEventListener('click', () => { chatWindow.classList.toggle('open'); });
+        chatForm.addEventListener('submit', (e) => { e.preventDefault(); const userMessage = chatInput.value.trim(); if (!userMessage) return; addMessageToChat(userMessage, 'user'); chatInput.value = ''; askSakuraAI(userMessage); });
+
+
+        function addMessageToChat(message, sender) { const messageElement = document.createElement('div'); messageElement.classList.add('chat-message', sender); if (sender === 'ai' && message === 'loading') { messageElement.classList.add('loading'); messageElement.innerHTML = `<div class="typing-indicator"><span></span><span></span><span></span></div>`; } else { messageElement.innerHTML = `<p>${message}</p>`; } chatMessages.appendChild(messageElement); chatMessages.scrollTop = chatMessages.scrollHeight; return messageElement; }
+
+
+        async function askSakuraAI(question) {
+    const loadingElement = addMessageToChat('loading', 'ai');
+
+    try {
+        const dataContext = buildComprehensiveContext();
+        
+        // Simpler, more direct prompt
+        let prompt = `You are a helpful and conversational AI assistant named Sakura AI. Your purpose is to answer questions about Sakura Company's financial data.
+        
+CURRENT FINANCIAL DATA: 
+${dataContext}
+        
+USER QUESTION: ${question}
+        
+Provide a concise and direct answer to the user's question in a conversational tone. If you are asked "who are you?", respond with "I am Sakura AI, a helpful assistant built by Google to analyze Sakura Company's financial data." Do not provide any other information unless explicitly asked for. Do not generate reports or emails. Just answer the question directly.`;
+
+        const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${GEMINI_API_KEY}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                contents: [{
+                    parts: [{
+                        text: prompt
+                    }]
+                }],
+                generationConfig: {
+                    temperature: 0.7,
+                    topK: 40,
+                    topP: 0.95,
+                    maxOutputTokens: 1024,
+                }
+            })
+        });
+
+        if (!response.ok) {
+            throw new Error(`API Error: ${response.status} ${response.statusText}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.candidates && data.candidates[0] && data.candidates[0].content) {
+            const aiResponse = data.candidates[0].content.parts[0].text;
+            const formattedResponse = formatAIResponse(aiResponse);
+            
+            loadingElement.classList.remove('loading');
+            loadingElement.innerHTML = `<p>${formattedResponse}</p>`;
+        } else {
+            throw new Error('Invalid response format from Gemini API');
+        }
+        
+    } catch (error) {
+        console.error('Error calling Gemini API:', error);
+        const errorMessage = getSmartErrorMessage(error, question);
+        
+        loadingElement.classList.remove('loading');
+        loadingElement.innerHTML = `<p>${errorMessage}</p>`;
+    }
+    
+    chatMessages.scrollTop = chatMessages.scrollHeight;
+}
+// --- NEW HELPER FUNCTIONS ---
+
+function detectLanguageFromInput(text) {
+    const input = text.toLowerCase();
+    const arabicPatterns = [/[\u0600-\u06FF]/g, /إيش|شلون|كيف|وين|شنو|ليش/, /ازاي|ايه|فين|ليه|امتى/, /كيف|وين|شو|ليش|متى/, /كيف|فين|ايش|ليه|امتى/, /واش|فين|علاش|وقتاش/, /ما هو|كيف|أين|لماذا|متى/];
+    const englishPatterns = [/\b(what|how|where|when|why|who|which|can|could|would|should|give|show|tell|explain)\b/i, /\b(summary|report|analysis|breakdown|details|overview|insight)\b/i];
+    const hindiHinglishPatterns = [/\b(kya|kaise|kahan|kab|kyun|koun|batao|dikhao|bolo|samjhao)\b/i, /\b(summary|report|de|do|kar|hai|hain|mujhe|humein)\b/i, /[\u0900-\u097F]/g];
+
+    let arabicScore = 0;
+    let englishScore = 0;
+    let hindiScore = 0;
+
+    arabicPatterns.forEach(pattern => {
+        const matches = input.match(pattern);
+        if (matches) arabicScore += matches.length;
+    });
+
+    englishPatterns.forEach(pattern => {
+        const matches = input.match(pattern);
+        if (matches) englishScore += matches.length;
+    });
+
+    hindiHinglishPatterns.forEach(pattern => {
+        const matches = input.match(pattern);
+        if (matches) hindiScore += matches.length;
+    });
+
+    if (arabicScore > englishScore && arabicScore > hindiScore) {
+        return 'arabic';
+    } else if (hindiScore > englishScore && hindiScore > arabicScore) {
+        return 'hindi';
+    } else if (englishScore > 0 || (arabicScore === 0 && hindiScore === 0)) {
+        return 'english';
+    } else {
+        return 'mixed';
+    }
+}
+
+function buildComprehensiveContext() {
+            let context = "SAKURA COMPANY FINANCIAL DATA:\n\n";
+
+            if (payableDataStore) {
+                context += "ACCOUNTS PAYABLE SUMMARY:\n";
+                context += `Total Dues: ${payableDataStore.totalDues}\n`;
+                context += `Overdue Amount: ${payableDataStore.overdues}\n`;
+                context += `Total Suppliers: ${payableDataStore.totalSuppliers}\n`;
+                context += `Total Transactions: ${payableDataStore.totalTransactions}\n\n`;
+            }
+
+            if (forecastingDataStore) {
+                context += "RAW MATERIAL FORECASTING SUMMARY:\n";
+                context += `Net Purchase Budget: ${forecastingDataStore.kpiTotalBudget}\n`;
+                context += `Items to Purchase: ${forecastingDataStore.kpiItemsToOrder}\n`;
+                context += `Potential Savings: ${forecastingDataStore.kpiSavings}\n`;
+                context += `Overstocked Value: ${forecastingDataStore.kpiOverstock}\n`;
+                context += `Forecast Accuracy: ${forecastingDataStore.kpiForecastAccuracy}\n\n`;
+            }
+
+            if (payableDataDetail.suppliers.length > 0) {
+                context += "PAYABLE SUPPLIERS LIST (FILTERED):\n";
+                context += "Supplier Name | Outstanding Balance | Total Purchases | Total Payments\n";
+                payableDataDetail.suppliers.slice(0, 50).forEach(s => {
+                    context += `${s.supplier} | ${s.outstandingBalance} | ${s.totalPurchases} | ${s.totalPayments}\n`;
+                });
+                context += "\n";
+            }
+            
+            if (payableDataDetail.invoices.length > 0) {
+                context += "PAYABLE INVOICES (FILTERED):\n";
+                context += "Invoice Number | Supplier | Amount | Due Status\n";
+                payableDataDetail.invoices.slice(0, 50).forEach(inv => {
+                    context += `${inv.invoiceNumber} | ${inv.supplier} | ${inv.amount} | ${inv.dueStatus}\n`;
+                });
+                context += "\n";
+            }
+
+            if (payableDataDetail.purchases.length > 0) {
+                context += "PAYABLE PURCHASES (FILTERED):\n";
+                context += "Item Name | Quantity | Unit Cost | Total After Tax | Supplier\n";
+                payableDataDetail.purchases.slice(0, 50).forEach(p => {
+                    context += `${p.itemName} | ${p.quantity} | ${p.unitCost} | ${p.totalAfterTax} | ${p.supplier}\n`;
+                });
+                context += "\n";
+            }
+
+            if (forecastingDataDetail.tableData.length > 0) {
+                context += "FORECASTING TABLE DATA (FILTERED):\n";
+                context += "Name | SKU | Net Required Qty | Unit Cost | Purchase Cost\n";
+                forecastingDataDetail.tableData.slice(0, 50).forEach(item => {
+                    const name = currentLang === 'ar' ? (item.name_localized || item.name) : item.name;
+                    context += `${name} | ${item.sku} | ${item.netRequired} | ${item.unitCost} | ${item.purchaseCost}\n`;
+                });
+                context += "\n";
+            }
+            
+            context += "Please use this data to answer the user's questions. If the data is not present, state that you do not have that specific information.";
+            
+            return context;
+        }
+function createSmartPrompt(question, language, dataContext) {
+    let roleDefinition = "";
+    let responseInstructions = "";
+    switch(language) {
+        case 'arabic':
+            roleDefinition = "أنت محلل مالي خبير في شركة ساكورا. اسمك 'محلل ساكورا الذكي'. تتحدث العربية بطلاقة وتقدم تحليلات مالية دقيقة ومفيدة.";
+            responseInstructions = "أجب باللغة العربية الفصحى أو العامية حسب أسلوب السؤال. كن دقيقاً ومفيداً في تحليلك المالي.";
+            break;
+        case 'hindi':
+            roleDefinition = "आप साकुरा कंपनी के एक विशेषज्ञ वित्तीय विश्लेषक हैं। आपका नाम 'साकुरा AI विश्लेषक' है। आप हिंदी और हिंग्लिश दोनों में धाराप्रवाह बात करते हैं।";
+            responseInstructions = "हिंदी या हिंग्लिश में जवाब दें, जैसा कि प्रश्न में इस्तेमाल किया गया है। वित्तीय विश्लेषण में सटीक और उपयोगी बनें।";
+            break;
+        case 'mixed':
+            roleDefinition = "You are Sakura AI Analyst, an expert financial analyst for Sakura Company. You're fluent in multiple languages and can respond in Hinglish, mixing Hindi and English naturally.";
+            responseInstructions = "Respond in the same mixed language style as the question (Hinglish). Be natural, conversational, and provide accurate financial insights.";
+            break;
+        default: // English
+            roleDefinition = "You are Sakura AI Analyst, a senior financial analyst and business intelligence expert for Sakura Company. You provide comprehensive, actionable insights.";
+            responseInstructions = "Respond in professional English. Be analytical, precise, and provide actionable recommendations based on the financial data.";
+    }
+
+    const questionType = analyzeQuestionType(question);
+    const specificInstructions = getInstructionsForQuestionType(questionType, language);
+
+    return `${roleDefinition}
+${responseInstructions}
+${specificInstructions}
+CURRENT FINANCIAL DATA:
+${dataContext}
+USER QUESTION: ${question}
+Provide a comprehensive, insightful response that directly answers their question using the financial data provided. Be specific with numbers and provide actionable recommendations where appropriate.`;
+}
+
+function analyzeQuestionType(question) {
+    const q = question.toLowerCase();
+    if (q.includes('summary') || q.includes('overview') || q.includes('samjhao') || q.includes('batao') || q.includes('ملخص') || q.includes('نظرة عامة')) {
+        return 'summary';
+    } else if (q.includes('recommendation') || q.includes('suggest') || q.includes('improve') || q.includes('توصية') || q.includes('सुझाव')) {
+        return 'recommendation';
+    } else if (q.includes('risk') || q.includes('problem') || q.includes('issue') || q.includes('خطر') || q.includes('مشكلة') || q.includes('जोखिम')) {
+        return 'risk_analysis';
+    } else if (q.includes('cash flow') || q.includes('liquidity') || q.includes('تدفق نقدي') || q.includes('نقدية') || q.includes('cash flow')) {
+        return 'cash_flow';
+    } else if (q.includes('supplier') || q.includes('vendor') || q.includes('مورد') || q.includes('आपूर्तिकर्ता')) {
+        return 'supplier_analysis';
+    } else {
+        return 'general';
+    }
+}
+
+function getInstructionsForQuestionType(type, language) {
+    const instructions = {
+        summary: {
+            english: "Provide a concise executive summary highlighting key financial metrics, main concerns, and overall health status.",
+            arabic: "قدم ملخصاً تنفيذياً موجزاً يبرز المؤشرات المالية الرئيسية والمخاوف الأساسية والحالة العامة للصحة المالية.",
+            hindi: "मुख्य वित्तीय मेट्रिक्स, मुख्य चिंताओं और समग्र स्वास्थ्य स्थिति को उजागर करते हुए एक संक्षिप्त कार्यकारी सारांश प्रदान करें।",
+            mixed: "Main financial metrics aur overall health status ka concise summary do, key concerns ke saath."
+        },
+        recommendation: {
+            english: "Provide specific, actionable recommendations with priority levels and expected impact on cash flow and operations.",
+            arabic: "قدم توصيات محددة وقابلة للتنفيذ مع مستويات الأولوية والتأثير المتوقع على التدفق النقدي والعمليات.",
+            hindi: "प्राथमिकता स्तर और नकदी प्रवाह और संचालन पर अपेक्षित प्रभाव के साथ विशिष्ट, क्रियान्वित करने योग्य सुझाव प्रदान करें।",
+            mixed: "Priority levels aur cash flow impact ke saath specific actionable recommendations do."
+        },
+        risk_analysis: {
+            english: "Identify key financial risks, their potential impact, and mitigation strategies with timeline.",
+            arabic: "حدد المخاطر المالية الرئيسية وتأثيرها المحتمل واستراتيجيات التخفيف مع الجدول الزمني.",
+            hindi: "मुख्य वित्तीय जोखिमों, उनके संभावित प्रभाव और समयसीमा के साथ शमन रणनीतियों की पहचान करें।",
+            mixed: "Key financial risks identify karo aur unka potential impact aur mitigation strategies batao."
+        },
+        cash_flow: {
+            english: "Focus on cash flow implications, working capital efficiency, and liquidity management recommendations.",
+            arabic: "ركز على تداعيات التدفق النقدي وكفاءة رأس المال العامل وتوصيات إدارة السيولة.",
+            hindi: "नकदी प्रवाह के निहितार्थ, कार्यशील पूंजी दक्षता और तरलता प्रबंधन सुझावों पर ध्यान दें।",
+            mixed: "Cash flow implications, working capital efficiency aur liquidity management par focus karo."
+        },
+        supplier_analysis: {
+            english: "Analyze supplier relationships, payment patterns, and vendor management optimization opportunities.",
+            arabic: "حلل علاقات الموردين وأنماط الدفع وفرص تحسين إدارة البائعين.",
+            hindi: "आपूर्तिकर्ता संबंधों, भुगतान पैटर्न और विक्रेता प्रबंधन अनुकूलन के अवसरों का विश्लेषण करें।",
+            mixed: "Supplier relationships, payment patterns aur vendor management opportunities analyze karo."
+        },
+        general: {
+            english: "Provide comprehensive analysis relevant to the question with specific data points and actionable insights.",
+            arabic: "قدم تحليلاً شاملاً ذا صلة بالسؤال مع نقاط بيانات محددة ورؤى قابلة للتنفيذ.",
+            hindi: "विशिष्ट डेटा पॉइंट्स और क्रियान्वित करने योग्य अंतर्दृष्टि के साथ प्रश्न के लिए प्रासंगिक व्यापक विश्लेषण प्रदान करें।",
+            mixed: "Question ke liye relevant comprehensive analysis do specific data points aur actionable insights ke saath."
+        }
+    };
+    return instructions[type][language] || instructions[type]['english'];
+}
+
+function formatAIResponse(response, language) {
+    let formatted = response.trim();
+    formatted = formatted.replace(/\n\n/g, '<br><br>');
+    formatted = formatted.replace(/\n/g, '<br>');
+    formatted = formatted.replace(/\*\s+/g, '• ');
+    formatted = formatted.replace(/\-\s+/g, '• ');
+    return formatted;
+}
+
+function getSmartErrorMessage(error, originalQuestion) {
+    const detectedLang = detectLanguageFromInput(originalQuestion);
+    const errorMessages = {
+        '400': {
+            english: 'Sorry, I had trouble understanding your request. Could you please rephrase your question more clearly?',
+            arabic: 'عذراً، واجهت صعوبة في فهم طلبك. هل يمكنك إعادة صياغة سؤالك بوضوح أكبر؟',
+            hindi: 'माफ करें, मुझे आपके प्रश्न को समझने में कठिनाई हुई। क्या आप कृपया अपना प्रश्न और स्पष्ट रूप से पूछ सकते हैं?',
+            mixed: 'Sorry, aapka question samajh nahi aaya. Thoda clearly puch sakte hain?'
+        },
+        '403': {
+            english: 'API access error. Please check the configuration.',
+            arabic: 'خطأ في الوصول إلى واجهة البرمجة. يرجى التحقق من الإعدادات.',
+            hindi: 'API एक्सेस त्रुटि। कृपया कॉन्फ़िगरेशन जांचें।',
+            mixed: 'API access mein problem hai. Configuration check karo.'
+        },
+        '429': {
+            english: 'Too many requests. Please wait a moment and try again.',
+            arabic: 'طلبات كثيرة جداً. يرجى الانتظار قليلاً والمحاولة مرة أخرى.',
+            hindi: 'बहुत सारे अनुरोध। कृपया थोड़ा इंतज़ार करें और फिर कोशिश करें।',
+            mixed: 'Bahut requests ho gayi. Thoda wait karo aur try karo.'
+        },
+        'default': {
+            english: 'I am temporarily unable to process your request. Please try again in a moment.',
+            arabic: 'لا أستطيع معالجة طلبك مؤقتاً. يرجى المحاولة مرة أخرى بعد قليل.',
+            hindi: 'मैं अस्थायी रूप से आपके अनुरोध को संसाधित करने में असमर्थ हूं। कृपया थोड़ी देर बाद पुनः प्रयास करें।',
+            mixed: 'Abhi aapka request process nahi kar sakta. Thodi der baad try karo.'
+        }
+    };
+
+    let errorCode = 'default';
+    if (error.message.includes('API Error: 400')) errorCode = '400';
+    else if (error.message.includes('API Error: 403')) errorCode = '403';
+    else if (error.message.includes('API Error: 429')) errorCode = '429';
+
+    return errorMessages[errorCode][detectedLang] || errorMessages[errorCode]['english'];
+}
+
+
+        function parseCurrency(valueStr) { if (typeof valueStr !== 'string') return 0; return parseFloat(valueStr.replace(/[^0-9.-]+/g, '')) || 0; }
+        function updateAllInsights() { /* ... same as previous version ... */ }
+        function updateHeaderTitle(dashboardUrl, lang) { /* ... same as previous version ... */ }
+        function loadDashboard(event, dashboardUrl) { /* ... same as previous version ... */ }
+        function translatePage(lang) { /* ... same as previous version ... */ }
+        function updateDateTime() { /* ... same as previous version ... */ }
+
+        function broadcastLanguageChange(lang) {
+            currentLang = lang;
+            localStorage.setItem('portalLang', lang);
+            document.documentElement.lang = lang;
+            document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+            translatePage(lang);
+            document.querySelectorAll('.lang-btn-modal').forEach(btn => {
+                btn.classList.remove('bg-gray-800', 'text-white');
+                if (btn.dataset.lang === lang) {
+                    btn.classList.add('bg-gray-800', 'text-white');
+                }
+            });
+            // Force language sync to all iframes
+            const langMessage = { type: 'SET_LANGUAGE', lang: lang };
+            if(mainIframe.contentWindow) {
+                mainIframe.contentWindow.postMessage(langMessage, '*');
+                // Also send to any other iframes that might be loaded
+                setTimeout(() => {
+                    if(mainIframe.contentWindow) mainIframe.contentWindow.postMessage(langMessage, '*');
+                }, 100);
+            }
+            updateDateTime();
+            setTimeout(closeSettingsModal, 200);
+        }
+
+        window.addEventListener('message', (event) => {
+    if (event.data && event.data.type) {
+        switch (event.data.type) {
+            case 'PAYABLE_DATA':
+                // Keep baseline KPIs intact; only store details from iframe
+                if (event.data.payload.suppliers) payableDataDetail.suppliers = event.data.payload.suppliers;
+                if (event.data.payload.invoices) payableDataDetail.invoices = event.data.payload.invoices;
+                if (event.data.payload.purchases) payableDataDetail.purchases = event.data.payload.purchases;
+                if (event.data.payload.payments) payableDataDetail.payments = event.data.payload.payments;
+                updateAllInsights();
+                break;
+            case 'INVOICE_DATA_DETAIL':
+                payableDataDetail.invoices = event.data.payload;
+                break;
+            case 'PURCHASE_DATA_DETAIL':
+                payableDataDetail.purchases = event.data.payload;
+                break;
+            case 'FORECASTING_DATA':
+                // Keep baseline KPIs intact; only accept detailed structures
+                if (event.data.payload && event.data.payload.forecastDetails) {
+                    forecastingDataDetail.forecastDetails = event.data.payload.forecastDetails;
+                }
+                updateAllInsights();
+                break;
+            case 'FORECAST_TABLE_DATA':
+                forecastingDataDetail.tableData = event.data.payload;
+                break;
+            case 'SET_LANGUAGE':
+                broadcastLanguageChange(event.data.lang);
+                break;
+        }
+    }
+});
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // Redirect to signup if not authenticated
+            const token = localStorage.getItem('sakura_token');
+            if (!token) {
+                window.location.href = '/signup.html';
+                return;
+            }
+
+            // Prefill profile data
+            fetch('/api/me', { headers: { Authorization: `Bearer ${token}` }})
+              .then(r => r.json())
+              .then(me => {
+                if (me && me.id) {
+                  const n=document.getElementById('pf_name'); const e=document.getElementById('pf_email');
+                  if(n) n.value = me.name || ''; if(e) e.value = me.email || '';
+                  const welcome = document.getElementById('sidebar-welcome');
+                  if (welcome && me.name) { 
+                    const template = i18n[currentLang].welcome_user || 'Welcome, {name}';
+                    welcome.textContent = template.replace('{name}', me.name); 
+                    welcome.classList.remove('hidden'); 
+                  }
+                  const cachedPhoto = localStorage.getItem('sakura_photo');
+                  if (cachedPhoto) setSidebarAvatar(cachedPhoto);
+                }
+              })
+              .catch(()=>{});
+
+            function setSidebarAvatar(url){
+              const side = document.getElementById('sidebar-avatar');
+              const uploadText = document.getElementById('sidebar-upload-text');
+              const removeBtn = document.getElementById('sidebar-remove');
+              if (url && side) { side.src = url; }
+              if (uploadText) uploadText.classList.add('hidden');
+              if (removeBtn) removeBtn.classList.remove('hidden');
+            }
+
+            const removeBtn = document.getElementById('sidebar-remove');
+            if (removeBtn) {
+              removeBtn.addEventListener('click', async () => {
+                localStorage.removeItem('sakura_photo');
+                const side = document.getElementById('sidebar-avatar');
+                const uploadText = document.getElementById('sidebar-upload-text');
+                if (side) side.src = 'https://images.deliveryhero.io/image/hungerstation/restaurant/logo/8556a1377e5154c66adf844d9c5ecb9f.jpg';
+                if (uploadText) uploadText.classList.remove('hidden');
+                removeBtn.classList.add('hidden');
+              });
+            }
+
+            // Ensure data is reloaded when returning to Home tab
+            window.addEventListener('focus', () => {
+              if (homeScreen && !homeScreen.classList.contains('hidden')) {
+                if (payableDataStore && forecastingDataStore) {
+                  updateAllInsights();
+                }
+              }
+            });
+
+            // Recompute when switching back to Home via nav
+            function showHomeAndRecompute(){
+              homeScreen.classList.remove('hidden');
+              mainIframe.style.display = 'none';
+              if (payableDataStore && forecastingDataStore) updateAllInsights();
+            }
+            // Monkey-patch existing call site by exposing function
+            window.__showHomeAndRecompute = showHomeAndRecompute;
+
+            const sidebarInput = document.getElementById('sidebar-photo-input');
+            if (sidebarInput) {
+              sidebarInput.addEventListener('change', async () => {
+                const token2 = localStorage.getItem('sakura_token');
+                const file = sidebarInput.files?.[0];
+                if (!file || !token2) return;
+                const fd = new FormData();
+                fd.append('photo', file);
+                const res = await fetch('/api/me', { method: 'PUT', headers: { Authorization: `Bearer ${token2}` }, body: fd });
+                const data = await res.json();
+                if (res.ok && data.photo) {
+                  localStorage.setItem('sakura_photo', data.photo);
+                  setSidebarAvatar(data.photo);
+                }
+              });
+            }
+
+            const pf = document.getElementById('profileForm');
+            if (pf) {
+              pf.addEventListener('submit', async (ev) => {
+                ev.preventDefault();
+                const msg = document.getElementById('pf_msg');
+                if (msg) msg.textContent = 'Saving...';
+                try {
+                  const fd = new FormData();
+                  const n = document.getElementById('pf_name')?.value || '';
+                  const e = document.getElementById('pf_email')?.value || '';
+                  const p = document.getElementById('pf_password')?.value || '';
+                  const file = document.getElementById('pf_photo')?.files?.[0];
+                  if (n) fd.append('name', n);
+                  if (e) fd.append('email', e);
+                  if (p) fd.append('password', p);
+                  if (file) fd.append('photo', file);
+                  const res = await fetch('/api/me', { method: 'PUT', headers: { Authorization: `Bearer ${token}` }, body: fd });
+                  const data = await res.json();
+                  if (!res.ok) throw new Error(data.error || 'Update failed');
+                  if (data.photo) {
+                    localStorage.setItem('sakura_photo', data.photo);
+                    setSidebarAvatar(data.photo);
+                  }
+                  const welcome = document.getElementById('sidebar-welcome');
+                  if (welcome && n) { 
+                    const template = i18n[currentLang].welcome_user || 'Welcome, {name}';
+                    welcome.textContent = template.replace('{name}', n); 
+                    welcome.classList.remove('hidden'); 
+                  }
+                  if (msg) msg.textContent = 'Saved';
+                } catch (err) {
+                  if (msg) msg.textContent = err.message;
+                }
+              });
+            }
+
+            // Always reload baseline numbers on each visit to prevent drift
+            fetch(DATA_URL + '?cache_bust=' + new Date().getTime())
+                .then(response => {
+                    if (!response.ok) { throw new Error('Network response was not ok'); }
+                    return response.json();
+                })
+                .then(data => {
+                    payableDataStore = data.payableData;
+                    forecastingDataStore = data.forecastingData;
+                    updateAllInsights();
+                })
+                .catch(error => {
+                    console.error("Fatal: Could not load pre-calculated dashboard data.", error);
+                    alert("Error: Could not load dashboard data. Please check the JSON file URL and ensure the Apps Script has run correctly.");
+                });
+
+            broadcastLanguageChange(currentLang);
+            updateDateTime()
+            setInterval(updateDateTime, 60000);
+
+            // Initialize biometric authentication
+            initializeBiometric();
+        });
+
+        // Duplicated functions for brevity
+        function updateAllInsights() { if (!payableDataStore || !forecastingDataStore) return; 
+            // Format numbers based on current language
+            const formatNumber = (num) => {
+                if (typeof num === 'string' && num.includes('%')) {
+                    const value = parseFloat(num.replace('%', ''));
+                    return value.toFixed(1) + '%';
+                }
+                if (typeof num === 'string' && num.includes('ر.س.')) {
+                    return num; // Already formatted currency
+                }
+                const numericValue = parseFloat(num) || parseInt(num) || 0;
+                return numericValue.toLocaleString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US');
+            };
+            
+            document.getElementById('kpi-payable-dues').innerHTML = payableDataStore.totalDues; 
+            document.getElementById('kpi-payable-suppliers').innerHTML = formatNumber(payableDataStore.totalSuppliers); 
+            document.getElementById('kpi-payable-overdues').innerHTML = payableDataStore.overdues; 
+            document.getElementById('kpi-payable-tx').innerHTML = formatNumber(payableDataStore.totalTransactions); 
+            document.getElementById('kpi-forecast-budget').innerHTML = forecastingDataStore.kpiTotalBudget; 
+            document.getElementById('kpi-forecast-items').innerHTML = formatNumber(forecastingDataStore.kpiItemsToOrder); 
+            document.getElementById('kpi-forecast-savings').innerHTML = forecastingDataStore.kpiSavings; 
+            document.getElementById('kpi-forecast-overstock').innerHTML = forecastingDataStore.kpiOverstock; 
+            document.getElementById('kpi-forecast-accuracy').innerHTML = formatNumber(forecastingDataStore.kpiForecastAccuracy); 
+            
+            const totalDues = parseCurrency(payableDataStore.totalDues); 
+            const overdues = parseCurrency(payableDataStore.overdues); 
+            const totalSuppliers = parseInt(payableDataStore.totalSuppliers) || 0; 
+            const purchaseBudget = parseCurrency(forecastingDataStore.kpiTotalBudget); 
+            const potentialSavings = parseCurrency(forecastingDataStore.kpiSavings); 
+            const overstockValue = parseCurrency(forecastingDataStore.kpiOverstock); 
+            const forecastAccuracy = parseFloat(forecastingDataStore.kpiForecastAccuracy) || 0; 
+            const overdueRatio = totalDues > 0 ? (overdues / totalDues) * 100 : 0; 
+            let score = 100 - (overdueRatio * 1.5) + ((forecastAccuracy - 85) * 1) - ((totalDues > 0 ? ((overdues + overstockValue) / totalDues) * 100 : 0) * 0.5); 
+            score = Math.max(0, Math.min(100, score)); 
+            const currentDues = totalDues - overdues; 
+            const currentPercent = totalDues > 0 ? (currentDues / totalDues) * 100 : 0; 
+            const overduePercent = totalDues > 0 ? (overdues / totalDues) * 100 : 0; 
+            const totalOutflow = totalDues + purchaseBudget; 
+            const nonProductiveCapital = overdues + overstockValue; 
+            const savingsImpact = totalDues > 0 ? (potentialSavings / totalDues) * 100 : 0; 
+            const avgDebt = totalSuppliers > 0 ? totalDues / totalSuppliers : 0; 
+            const forecastInaccuracy = 100 - forecastAccuracy; 
+            const savingsPerPercent = forecastInaccuracy > 0 ? (overstockValue / forecastInaccuracy) : 0; 
+            const gaugeEl = document.getElementById('health-gauge'); 
+            document.getElementById('health-score-value').textContent = Math.round(score); 
+            gaugeEl.style.setProperty('--p', score); 
+            let color1 = '#dc2626'; 
+            if(score > 50) color1 = '#f59e0b'; 
+            if(score > 75) color1 = '#16a34a'; 
+            gaugeEl.style.setProperty('--c1', color1); 
+            gaugeEl.style.setProperty('--c2', '#e5e7eb'); 
+            document.getElementById('aging-value-current').textContent = `SAR ${currentDues.toLocaleString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US')}`; 
+            document.getElementById('aging-bar-current').style.width = `${currentPercent}%`; 
+            document.getElementById('aging-value-overdue').textContent = `SAR ${overdues.toLocaleString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US')}`; 
+            document.getElementById('aging-bar-overdue').style.width = `${overduePercent}%`; 
+            const recommendationEl = document.getElementById('recommendation-text'); 
+            if (overdues > 0 && potentialSavings > 0) { 
+                const clearablePercent = (potentialSavings / overdues) * 100; 
+                recommendationEl.innerHTML = `${i18n[currentLang].rec_1_part_1}SAR ${potentialSavings.toLocaleString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US')}${i18n[currentLang].rec_1_part_2}${Math.min(100, clearablePercent).toFixed(0)}%${i18n[currentLang].rec_1_part_3}`; 
+            } else if (nonProductiveCapital > (totalDues * 0.2)) { 
+                recommendationEl.innerHTML = `${i18n[currentLang].rec_2_part_1}SAR ${nonProductiveCapital.toLocaleString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US')}${i18n[currentLang].rec_2_part_2}`; 
+            } else { 
+                recommendationEl.innerHTML = i18n[currentLang].rec_3; 
+            } 
+            document.getElementById('insight-outflow').textContent = `SAR ${totalOutflow.toLocaleString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US')}`; 
+            document.getElementById('insight-capital-risk').textContent = `SAR ${nonProductiveCapital.toLocaleString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US')}`; 
+            document.getElementById('insight-overdue-ratio').textContent = `${overdueRatio.toFixed(1)}%`; 
+            document.getElementById('insight-accuracy-cost').textContent = `≈ SAR ${Math.round(savingsPerPercent).toLocaleString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US')}`; 
+            document.getElementById('insight-savings-impact').textContent = `${savingsImpact.toFixed(1)}%`; 
+            document.getElementById('insight-avg-debt').textContent = `SAR ${Math.round(avgDebt).toLocaleString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US')}`; 
+        }
+        function updateHeaderTitle(dashboardUrl, lang) { let key = 'hub_title'; const activeLink = document.querySelector(`.nav-link.active`); if (activeLink) { const newUrl = activeLink.getAttribute('onclick').match(/'([^']+)'/)[1]; if (newUrl === 'payable.html') key = 'payable_title'; else if (newUrl === 'forecasting.html') key = 'forecasting_title'; } headerTitle.textContent = i18n[lang][key] || 'Sakura Hub'; }
+        function loadDashboard(event, dashboardUrl) {
+            event.preventDefault();
+            navLinks.forEach(link => link.classList.remove('active'));
+            event.currentTarget.classList.add('active');
+            if (window.innerWidth < 768 && sidebar.classList.contains('open')) { toggleMenu(); }
+            updateHeaderTitle(dashboardUrl, currentLang);
+            if (dashboardUrl === 'home') {
+                window.__showHomeAndRecompute();
+            } else {
+                homeScreen.classList.add('hidden');
+                mainIframe.style.display = 'block';
+                if (!mainIframe.src.includes(dashboardUrl)) {
+                    mainIframe.src = dashboardUrl;
+                    mainIframe.onload = () => {
+                        if (mainIframe.contentWindow) {
+                            mainIframe.contentWindow.postMessage({ type: 'REQUEST_DATA_DUMP' }, '*');
+                            // Send current language to iframe immediately after load
+                            setTimeout(() => {
+                                if(mainIframe.contentWindow) {
+                                    mainIframe.contentWindow.postMessage({ type: 'SET_LANGUAGE', lang: currentLang }, '*');
+                                }
+                            }, 50);
+                        }
+                    };
+                } else {
+                    // This case handles when the iframe is already loaded, but the user switches to a different tab and comes back
+                    if (mainIframe.contentWindow) {
+                        mainIframe.contentWindow.postMessage({ type: 'REQUEST_DATA_DUMP' }, '*');
+                        // Ensure language is synced when switching back
+                        mainIframe.contentWindow.postMessage({ type: 'SET_LANGUAGE', lang: currentLang }, '*');
+                    }
+                }
+            }
+        }
+        function translatePage(lang) { 
+          document.querySelectorAll('[data-key]').forEach(el => { 
+            const key = el.dataset.key; 
+            if (i18n[lang] && i18n[lang][key]) { 
+              el.textContent = i18n[lang][key]; 
+            } 
+          }); 
+          // Re-translate welcome message if user is logged in
+          const token = localStorage.getItem('sakura_token');
+          if (token) {
+            fetch('/api/me', { headers: { Authorization: `Bearer ${token}` }})
+              .then(r => r.json())
+              .then(me => {
+                if (me && me.name) {
+                  const welcome = document.getElementById('sidebar-welcome');
+                  if (welcome && !welcome.classList.contains('hidden')) {
+                    const template = i18n[lang].welcome_user || 'Welcome, {name}';
+                    welcome.textContent = template.replace('{name}', me.name);
+                  }
+                }
+              })
+              .catch(()=>{});
+          }
+          if (payableDataStore && forecastingDataStore) { updateAllInsights(); } 
+          updateHeaderTitle(null, lang); 
+        }
+        function updateDateTime() { const now = new Date(); const locale = currentLang === 'ar' ? 'ar-SA-u-nu-latn' : 'en-US'; const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true }; document.getElementById('current-date-time').textContent = now.toLocaleDateString(locale, options);         }
+
+        // Biometric Authentication Functions
+        function initializeBiometric() {
+            const token = localStorage.getItem('sakura_token');
+            if (!token) return;
+
+            // Check if WebAuthn is supported
+            if (!window.PublicKeyCredential) {
+                document.getElementById('biometric-status').textContent = 'Not supported';
+                document.getElementById('biometric-toggle').disabled = true;
+                return;
+            }
+
+            // Check current biometric status
+            fetch('/api/auth/biometric/status', {
+                headers: { Authorization: `Bearer ${token}` }
+            })
+            .then(r => r.json())
+            .then(data => {
+                const toggle = document.getElementById('biometric-toggle');
+                const status = document.getElementById('biometric-status');
+                const setup = document.getElementById('biometric-setup');
+                const info = document.getElementById('biometric-info');
+
+                if (data.enabled) {
+                    toggle.checked = true;
+                    status.textContent = 'Enabled';
+                    status.className = 'text-sm text-green-600 mr-3';
+                    setup.classList.add('hidden');
+                    info.classList.remove('hidden');
+                } else {
+                    toggle.checked = false;
+                    status.textContent = 'Available';
+                    status.className = 'text-sm text-gray-500 mr-3';
+                    setup.classList.remove('hidden');
+                    info.classList.add('hidden');
+                }
+            })
+            .catch(err => {
+                console.error('Biometric status check failed:', err);
+                document.getElementById('biometric-status').textContent = 'Error';
+            });
+
+            // Setup event listeners
+            document.getElementById('biometric-toggle').addEventListener('change', handleBiometricToggle);
+            document.getElementById('setup-biometric').addEventListener('click', setupBiometric);
+        }
+
+        function handleBiometricToggle(event) {
+            const isEnabled = event.target.checked;
+            const token = localStorage.getItem('sakura_token');
+            
+            if (isEnabled) {
+                setupBiometric();
+            } else {
+                // Disable biometric
+                fetch('/api/auth/biometric/disable', {
+                    method: 'POST',
+                    headers: { Authorization: `Bearer ${token}` }
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        updateBiometricUI(false);
+                        alert('Biometric authentication disabled');
+                    } else {
+                        event.target.checked = false;
+                        alert('Failed to disable biometric authentication');
+                    }
+                })
+                .catch(err => {
+                    console.error('Disable biometric failed:', err);
+                    event.target.checked = false;
+                    alert('Failed to disable biometric authentication');
+                });
+            }
+        }
+
+        function setupBiometric() {
+            const token = localStorage.getItem('sakura_token');
+            
+            // Check if WebAuthn is supported
+            if (!window.PublicKeyCredential) {
+                alert('Biometric authentication is not supported on this device');
+                return;
+            }
+
+            // Start registration process
+            fetch('/api/auth/biometric/register/begin', {
+                method: 'POST',
+                headers: { Authorization: `Bearer ${token}` }
+            })
+            .then(r => r.json())
+            .then(options => {
+                // Convert options to WebAuthn format
+                const publicKeyCredentialCreationOptions = {
+                    challenge: new Uint8Array(Object.values(options.challenge)),
+                    rp: options.rp,
+                    user: {
+                        id: new Uint8Array(Object.values(options.user.id)),
+                        name: options.user.name,
+                        displayName: options.user.displayName
+                    },
+                    pubKeyCredParams: options.pubKeyCredParams,
+                    authenticatorSelection: options.authenticatorSelection,
+                    timeout: options.timeout,
+                    attestation: options.attestation
+                };
+
+                // Create credential
+                return navigator.credentials.create({
+                    publicKey: publicKeyCredentialCreationOptions
+                });
+            })
+            .then(credential => {
+                // Convert credential to sendable format
+                const credentialForServer = {
+                    id: credential.id,
+                    rawId: Array.from(new Uint8Array(credential.rawId)),
+                    response: {
+                        attestationObject: Array.from(new Uint8Array(credential.response.attestationObject)),
+                        clientDataJSON: Array.from(new Uint8Array(credential.response.clientDataJSON))
+                    },
+                    type: credential.type
+                };
+
+                // Complete registration
+                return fetch('/api/auth/biometric/register/complete', {
+                    method: 'POST',
+                    headers: { 
+                        Authorization: `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ credential: credentialForServer })
+                });
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    updateBiometricUI(true);
+                    alert('Biometric authentication enabled successfully!');
+                } else {
+                    throw new Error(data.error || 'Registration failed');
+                }
+            })
+            .catch(err => {
+                console.error('Biometric setup failed:', err);
+                document.getElementById('biometric-toggle').checked = false;
+                alert('Failed to setup biometric authentication: ' + err.message);
+            });
+        }
+
+        function updateBiometricUI(enabled) {
+            const toggle = document.getElementById('biometric-toggle');
+            const status = document.getElementById('biometric-status');
+            const setup = document.getElementById('biometric-setup');
+            const info = document.getElementById('biometric-info');
+
+            toggle.checked = enabled;
+            
+            if (enabled) {
+                status.textContent = 'Enabled';
+                status.className = 'text-sm text-green-600 mr-3';
+                setup.classList.add('hidden');
+                info.classList.remove('hidden');
+            } else {
+                status.textContent = 'Available';
+                status.className = 'text-sm text-gray-500 mr-3';
+                setup.classList.remove('hidden');
+                info.classList.add('hidden');
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SakuraCafe RM Forecasting & Budgeting Analysis</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&family=Dubai:wght@400;700&display=swap');
+        :root {
+            --brand-primary: #284b44; --brand-secondary: #956c2a; --brand-accent: #ea8990;
+            --brand-background: #f0e1cd; --card-bg-color: #ffffff; --text-color: #333; --header-text-color: #ffffff;
+            --success-color: #28a745; --warning-color: #fd7e14;
+        }
+        body { font-family: 'Cairo', sans-serif; margin: 0; padding: 10px; background: var(--brand-background); color: var(--text-color); }
+        .container { max-width: 98%; margin: 10px auto; background: var(--card-bg-color); border-radius: 15px; box-shadow: 0 10px 40px rgba(0,0,0,0.1); overflow: hidden; }
+        .header { background: linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-secondary) 100%); color: var(--header-text-color); padding: 20px; }
+        .header-content { display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap; }
+        .header-left-panel, .header-right-panel { flex: 1; }
+        .header-left-panel { display: flex; justify-content: flex-start; }
+        .header-right-panel { display: flex; justify-content: flex-end; align-items: center; gap: 1rem; }
+        .header-logo { height: 50px; width: 50px; border-radius: 50%; border: 2px solid white; }
+        .header-title-section { text-align: center; flex: 2; }
+        .header-title-section h1 { margin: 0; font-size: 1.8em; font-family: 'Dubai', sans-serif; }
+        .header-title-section p { margin: 5px 0 0 0; opacity: 0.9; font-size: 0.9em; }
+        .header-date-section { text-align: right; flex-shrink: 0; }
+        .header-date-section #currentDate { font-size: 1.2em; font-weight: bold; }
+        .content { padding: 20px; }
+        .progress-section { margin: 30px 0; display: none; }
+        .progress-bar { width: 100%; height: 25px; background: #e0e0e0; border-radius: 12px; overflow: hidden; margin: 15px 0; }
+        .progress-fill { height: 100%; background: linear-gradient(45deg, var(--brand-primary), var(--brand-secondary)); transition: width 0.5s ease; width: 0%; }
+        .results-section, .visualization-section { display: none; margin: 30px 0; }
+        .summary-card { background: var(--brand-primary); color: white; padding: 20px; border-radius: 12px; text-align: center; margin-bottom: 30px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        .summary-card h2 { margin: 0 0 15px 0; font-size: 1.5em; font-weight: 600; }
+        .summary-details { display: flex; justify-content: space-around; align-items: center; flex-wrap: wrap; gap: 15px; }
+        .summary-item { text-align: center; }
+        .summary-item p { margin: 0; font-size: 2em; font-weight: 700; }
+        .summary-item span { font-size: 0.8em; opacity: 0.8; }
+        .summary-operator { font-size: 2em; font-weight: 300; opacity: 0.8; }
+        .net-budget { border: 2px solid var(--brand-secondary); padding: 10px; border-radius: 8px; }
+        .table-container { overflow-x: auto; border: 1px solid #ddd; border-radius: 10px; }
+        table { width: 100%; min-width: 1400px; border-collapse: collapse; font-size: 0.9em; }
+        th { background: var(--brand-primary); color: white; padding: 15px 10px; font-weight: 600; position: sticky; top: 0; z-index: 10; }
+        td { border-bottom: 1px solid #eee; }
+        th, td { padding: 12px 10px; vertical-align: middle !important; text-align: center;}
+        th:nth-child(2), td:nth-child(2), th:nth-child(5), td:nth-child(5) { text-align: left; white-space: normal; }
+        th:nth-child(n+6):not(:nth-child(8)):not(:nth-child(13)), td:nth-child(n+6):not(:nth-child(8)):not(:nth-child(13)) { text-align: right; }
+        body[dir="rtl"] th, body[dir="rtl"] td { text-align: right; }
+        body[dir="rtl"] th:nth-child(2), body[dir="rtl"] td:nth-child(2), body[dir="rtl"] th:nth-child(5), body[dir="rtl"] td:nth-child(5) { text-align: right; }
+        body[dir="rtl"] th:nth-child(n+6):not(:nth-child(8)):not(:nth-child(13)), body[dir="rtl"] td:nth-child(n+6):not(:nth-child(8)):not(:nth-child(13)) { text-align: left; }
+        .btn { background: var(--brand-primary); color: white; padding: 12px 25px; border: none; border-radius: 25px; cursor: pointer; font-size: 1em; font-weight: 600; margin: 5px; display: block; width: 100%; box-sizing: border-box; text-align: center;}
+        .btn:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        .btn-details, .btn-compare, .btn-inventory { font-size: 0.8em; padding: 8px 15px; margin: 2px 0; }
+        .btn-details { background: var(--brand-secondary); }
+        .btn-compare { background: #284b44; }
+        .btn-inventory { background: var(--brand-accent); }
+        .modal { display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; overflow: auto; background-color: rgba(0,0,0,0.6); }
+        .modal-content { background-color: #fefefe; margin: 5% auto; padding: 0; border: none; width: 95%; max-width: 1200px; border-radius: 15px; box-shadow: 0 5px 25px rgba(0,0,0,0.4); animation-name: animatetop; animation-duration: 0.4s; }
+        @keyframes animatetop { from {top: -300px; opacity: 0} to {top: 0; opacity: 1} }
+        .modal-header { padding: 20px 30px; background: linear-gradient(135deg, var(--brand-primary), var(--brand-secondary)); color: white; border-top-left-radius: 15px; border-top-right-radius: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .modal-title { margin: 0; font-size: 1.5em; }
+        .close { color: white; font-size: 28px; font-weight: bold; cursor: pointer; }
+        .modal-body { padding: 20px; max-height: 80vh; overflow-y: auto; }
+        .dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin-bottom: 20px; }
+        .dash-card { background: var(--card-bg-color); padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); border-left: 5px solid var(--brand-secondary); }
+        .dash-card h4 { margin: 0 0 10px 0; color: #555; font-size: 1em; font-weight: 600; }
+        .dash-card p { margin: 0; font-size: 1.8em; font-weight: 700; color: var(--brand-primary); }
+        .analysis-section { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+        .bar { width: 100%; background: #e0e0e0; height: 25px; border-radius: 5px; margin-bottom: 10px; }
+        .bar > div { height: 100%; border-radius: 5px; }
+        .bar-label { display: flex; justify-content: space-between; font-size: 0.9em; margin-bottom: 5px; }
+        .status-badge { padding: 3px 8px; border-radius: 12px; color: white; font-size: 0.8em; font-weight: bold; }
+        .chart-container { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .chart-container h4 { margin: 0 0 15px 0; }
+        .view-toggle { text-align: center; margin-bottom: 20px; background: #eee; border-radius: 25px; padding: 5px; display: inline-block; }
+        .toggle-btn { background: transparent; border: none; padding: 10px 20px; cursor: pointer; border-radius: 20px; font-weight: 600; color: #555; transition: all 0.3s ease; }
+        .toggle-btn.active { background: var(--brand-secondary); color: white; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .kpi-card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.07); text-align: center; }
+        .kpi-card h3 { margin: 0 0 10px; font-size: 1em; color: #555; font-weight: 600; }
+        .kpi-card p { margin: 0; font-size: 2em; font-weight: 700; color: var(--brand-primary); }
+        .kpi-card .savings { color: var(--success-color); }
+        .kpi-card .overstock { color: var(--warning-color); }
+        .charts-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 20px; }
+        .grid-col-span-2 { grid-column: span 2; }
+        .consumption-item:not(:last-child) { padding-bottom: 15px !important; margin-bottom: 15px !important; border-bottom: 1px solid #eee; }
+        @media (max-width: 1100px) { .grid-col-span-2 { grid-column: span 1; } }
+        @media (max-width: 768px) { .content { padding: 10px; } .header-content { flex-direction: column; gap: 15px; } .header-left-panel, .header-right-panel { flex: none; width: 100%; justify-content: center; } .header-right-panel { flex-direction: column; gap: 10px; } .header-date-section { text-align: center; } .header-title-section h1 { font-size: 1.4em; } .header-title-section p { font-size: 0.9em; } .view-toggle { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; background: none; padding: 0; } .toggle-btn { flex-grow: 1; font-size: 0.85em; padding: 8px 10px; background: #eee; } .summary-card h2 { font-size: 1.3em; } .summary-item p { font-size: 1.8em; } .summary-details { flex-direction: column; } .analysis-section { grid-template-columns: 1fr; } .kpi-grid { grid-template-columns: 1fr 1fr; } .charts-grid { grid-template-columns: 1fr; } }
+        @media (max-width: 480px) { .kpi-grid { grid-template-columns: 1fr; } }
+        .header {
+    display: none;
+}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <div class="header-content">
+                <div class="header-left-panel">
+                    <img src="https://images.deliveryhero.io/image/hungerstation/restaurant/logo/8556a1377e5154c66adf844d9c5ecb9f.jpg" alt="Sakura Logo" class="header-logo">
+                </div>
+                <div class="header-title-section">
+                    <h1 data-lang="pageTitle"></h1>
+                    <p data-lang="pageSubtitle"></p>
+                </div>
+                <div class="header-right-panel">
+                    <div class="header-date-section">
+                        <div id="currentDate"></div>
+                        <p data-lang="currentDateLabel"></p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="content">
+            <div id="loadingMessage" style="text-align: center; display: block;"> <h2 data-lang="loadingTitle"></h2><p data-lang="loadingDesc"></p> </div>
+            <div class="progress-section" id="progressSection"> <h3 data-lang="processingTitle"></h3> <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div><p id="progressText"></p> </div>
+            <div style="text-align: center;"> <div class="view-toggle"> <button id="toggle-insights" class="toggle-btn active" onclick="switchView('insights')" data-lang="view_insights"></button> <button id="toggle-forecast" class="toggle-btn" onclick="switchView('forecast')" data-lang="view_forecast"></button> <button id="toggle-actual" class="toggle-btn" onclick="switchView('actual')" data-lang="view_actual"></button> </div> </div>
+            
+            <div class="visualization-section" id="visualizationSection">
+                 <div class="kpi-grid"> 
+                     <div class="kpi-card"><h3 data-lang="kpi_total_budget"></h3><p id="kpiTotalBudget"></p></div>
+                     <div class="kpi-card"><h3 data-lang="kpi_items_to_order"></h3><p id="kpiItemsToOrder"></p></div>
+                     <div class="kpi-card"><h3 data-lang="kpi_savings"></h3><p id="kpiSavings" class="savings"></p></div>
+                     <div class="kpi-card"><h3 data-lang="kpi_overstock_value"></h3><p id="kpiOverstock" class="overstock"></p></div>
+                     <div class="kpi-card"><h3 data-lang="kpi_forecast_accuracy"></h3><p id="kpiForecastAccuracy"></p></div>
+                 </div>
+                 <div class="charts-grid">
+                     <div class="chart-container grid-col-span-2"><h4 data-lang="chart_top10_title"></h4><canvas id="top10CostChart"></canvas></div>
+                     <div class="chart-container"><h4 data-lang="chart_usage_title"></h4><canvas id="usageTypeChart"></canvas></div>
+                     <div class="chart-container"><h4 data-lang="chart_inventory_title"></h4><canvas id="inventoryStatusChart"></canvas></div>
+                     <div class="chart-container"> <h4 data-lang="chart_critical_items_title"></h4> <div id="criticalItemsContainer"></div> </div>
+                     <div class="chart-container"> <h4 data-lang="chart_overstocked_items_title"></h4> <div id="overstockedItemsContainer"></div> </div>
+                 </div>
+            </div>
+            
+            <div class="results-section" id="resultsSection">
+                <div id="summaryCard" class="summary-card"></div>
+                <div class="table-container" style="margin-top: 20px;"> <table id="forecastTable"> <thead><tr id="tableHeaderRow"></tr></thead> <tbody id="forecastBody"></tbody> </table> </div>
+                <div style="text-align: center; margin-top: 20px;"> <button class="btn" id="downloadBtn" data-lang="downloadBtn" onclick="downloadCSV()"></button> </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="usageModal" class="modal"><div class="modal-content"><div class="modal-header"><h2 id="modalTitle" class="modal-title"></h2><span class="close" onclick="closeAllModals()">&times;</span></div><div class="modal-body" id="modalBody"></div></div></div>
+    <div id="comparisonModal" class="modal"><div class="modal-content"><div class="modal-header"><h2 id="comparisonModalTitle" class="modal-title"></h2><span class="close" onclick="closeAllModals()">&times;</span></div><div class="modal-body" id="comparisonModalBody"></div></div></div>
+    <div id="inventoryModal" class="modal"><div class="modal-content"><div class="modal-header"><h2 id="inventoryModalTitle" class="modal-title"></h2><span class="close" onclick="closeAllModals()">&times;</span></div><div class="modal-body" id="inventoryModalBody"></div></div></div>
+
+    <script>
+        window.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'INIT_DATA' && event.data.payload) {
+        const data = event.data.payload;
+
+        // Assuming payload contains all the data needed for this dashboard
+        completeRMForecast = data.completeRMForecast || [];
+        detailedUsageData = data.detailedUsageData || {};
+
+        // Render the dashboard with the received data
+        switchView('insights');
+    }
+    
+    // Handle language changes from parent portal
+    if (event.data && event.data.type === 'SET_LANGUAGE') {
+        switchLanguage(event.data.lang);
+    }
+});
+        let completeRMForecast = [];
+        let detailedUsageData = {};
+        let currentLang = localStorage.getItem('portalLang') || 'ar';
+        let currentView = 'insights';
+        let chartInstances = {};
+        const translations = {
+            en: { pageTitle: "SakuraCafe RM Forecasting & Budgeting Analysis", pageSubtitle: "September 2025 Complete Raw Material Analysis & Costing", loadingTitle: "Loading Data from Google Sheet...", loadingDesc: "Please wait a moment.", processingTitle: "Processing Your Data...", totalBudgetTitle: "September Estimated Purchase Budget", summary_total_req: "Total Required Cost", summary_available_val: "Value of Available Stock", downloadBtn: "📥 Download Purchase Plan", th_rank: "Rank", th_rmName: "RM Name", th_sku: "SKU", th_usageType: "Usage Type", th_augConsumption: "Aug Consumption Qty", th_totalRequired: "Gross Required Qty", th_netRequired: "Net Required Qty", th_unit: "Unit", th_availableQty: "Available Qty", th_unitCost: "Unit Cost (Incl. VAT)", th_totalCost: "Gross Required Cost", th_netRequiredCost: "Net Required Cost", th_details: "Actions", viewDetails: "View Details", compare: "Compare", inventoryAnalysis: "Stock Analysis", modal_overview: "Consumption Overview", modal_totalReq: "Total Requirement", modal_netRequired: "Net Purchase Qty", modal_purchaseCalc: "Purchase Calculation", modal_usageType: "Usage Type", modal_sourceProducts: "Source Products", modal_sourceModifiers: "Source Modifiers", modal_analysis: "Consumption Analysis", modal_direct: "Direct Usage", modal_viaFG: "Via Finished Goods", modal_topConsumers: "Top 3 Consumers (by Selling Item)", modal_detailedLog: "Detailed Consumption Log", modal_log_totalSum: "Total Consumption in Ingredient Unit", usageType_direct: "Direct Only", usageType_fg: "Finished Goods Only", usageType_both: "Direct & Finished Goods", usageType_unknown: "Unknown", modal_log_type: "Type", modal_log_salesQty: "Sales Qty", modal_log_rmPerItem: "RM per Item", modal_log_recipe: "Recipe", modal_log_recipeQty: "Recipe Qty", modal_log_rmPerRecipe: "RM per Recipe Unit", modal_log_totalConsumed: "Total RM Consumed", modal_log_ingUnit: "(ingredient unit)", type_direct_product: "Direct from Product", type_direct_modifier: "Direct from Modifier", type_fg_product: "Via Finished Goods from Product", type_fg_modifier: "Via Finished Goods from Modifier", modal_inv_consumption_title: "Consumption Source (Inventory) - Total:", modal_inv_prod_consumption: "From Production", modal_inv_order_consumption: "From Orders (Wastage/etc)", comparison_title: "Forecast vs. Actual Consumption", comparison_forecasted: "Forecasted Consumption (Sales)", comparison_actual: "Actual Consumption (Inventory)", comparison_variance: "Variance", comparison_over_forecast: "Over-forecasted", comparison_under_forecast: "Under-forecasted", inv_title: "Inventory Level Analysis", inv_total_available: "Total Available Stock", inv_breakdown: "Stock Breakdown by Branch", inv_branch: "Branch", inv_quantity: "Quantity", inv_days_remaining: "Days of Stock Remaining", inv_based_on_forecast: "Based on Forecast", inv_based_on_actual: "Based on Actuals", inv_monthly_consumption: "Monthly Consumption", inv_daily_avg: "Daily Average Consumption", inv_status: "Status", inv_status_healthy: "Healthy", inv_status_low: "Low", inv_status_critical: "Critical", inv_status_infinite: "Infinite", inv_sept_required: "Sept. Required Qty", inv_not_required: "Not Required", view_forecast: "📊 Forecast View", view_actual: "📋 Actuals View", view_insights: "💡 Actionable Insights", currentDateLabel: "Current Date", kpi_total_budget: "Net Purchase Budget", kpi_items_to_order: "Items to Purchase", kpi_savings: "Potential Savings", kpi_overstock_value: "Overstocked Value", kpi_forecast_accuracy: "Overall Forecast Accuracy", chart_top10_title: "Top 10 Raw Materials by Purchase Cost", chart_usage_title: "Purchase Cost by Usage Type", chart_inventory_title: "Inventory Health Status", chart_critical_items_title: "Top 5 Critical Stock Items", chart_overstocked_items_title: "Top 5 Overstocked Items (by Value)", total: "Total", warehouse: "WH", branches: "Branches", production: "Production" },
+            ar: { pageTitle: " تحليل وتوقع ميزانية المواد الخام في ساكورا كافيه", pageSubtitle: "التحليل والتكلفة الكاملة للمواد الخام لشهر سبتمبر 2025", loadingTitle: "جاري تحميل البيانات من جوجل شيت...", loadingDesc: "يرجى الانتظار قليلاً.", processingTitle: "جاري معالجة بياناتك...", totalBudgetTitle: "الميزانية التقديرية للمشتريات لشهر سبتمبر", summary_total_req: "إجمالي التكلفة المطلوبة", summary_available_val: "قيمة المخزون المتاح", downloadBtn: "📥 تحميل خطة الشراء", th_rank: "الترتيب", th_rmName: "اسم المادة", th_sku: "SKU", th_usageType: "نوع الاستخدام", th_augConsumption: "استهلاك أغسطس", th_totalRequired: "إجمالي المطلوب", th_netRequired: "صافي المطلوب", th_unit: "الوحدة", th_availableQty: "الكمية المتاحة", th_unitCost: "تكلفة الوحدة (شامل الضريبة)", th_totalCost: "التكلفة الإجمالية", th_netRequiredCost: "تكلفة صافي المطلوب", th_details: "الإجراءات", viewDetails: "عرض التفاصيل", compare: "مقارنة", inventoryAnalysis: "تحليل المخزون", modal_overview: "نظرة عامة على الاستهلاك", modal_totalReq: "إجمالي المطلوب", modal_netRequired: "صافي كمية الشراء", modal_purchaseCalc: "حساب المشتريات", modal_usageType: "نوع الاستخدام", modal_sourceProducts: "منتجات المصدر", modal_sourceModifiers: "إضافات المصدر", modal_analysis: "تحليل الاستهلاك", modal_direct: "استخدام مباشر", modal_viaFG: "عبر مواد مصنعة", modal_topConsumers: "أكبر 3 مستهلكين (حسب المنتج المباع)", modal_detailedLog: "سجل الاستهلاك التفصيلي", modal_log_totalSum: "إجمالي الاستهلاك بوحدة المكون", usageType_direct: "مباشر فقط", usageType_fg: "مواد مصنعة فقط", usageType_both: "مباشر ومواد مصنعة", usageType_unknown: "غير معروف", modal_log_type: "النوع", modal_log_salesQty: "كمية المبيعات", modal_log_rmPerItem: "المادة لكل عنصر", modal_log_recipe: "الوصفة", modal_log_recipeQty: "كمية الوصفة", modal_log_rmPerRecipe: "المادة لكل وحدة وصفة", modal_log_totalConsumed: "إجمالي استهلاك المادة", modal_log_ingUnit: "(بوحدة المكون)", type_direct_product: "مباشر من المنتج", type_direct_modifier: "مباشر من الإضافة", type_fg_product: "عبر مادة مصنعة من المنتج", type_fg_modifier: "عبر مادة مصنعة من الإضافة", modal_inv_consumption_title: "مصدر الاستهلاك (من المخزون) - الإجمالي:", modal_inv_prod_consumption: "من الإنتاج", modal_inv_order_consumption: "من الطلبات (هدر/تحويل)", comparison_title: "مقارنة الاستهلاك المتوقع والفعلي", comparison_forecasted: "الاستهلاك المتوقع (من المبيعات)", comparison_actual: "الاستهلاك الفعلي (من المخزون)", comparison_variance: "الفرق", comparison_over_forecast: "توقع أعلى", comparison_under_forecast: "توقع أقل", inv_title: "تحليل مستوى المخزون", inv_total_available: "إجمالي المخزون المتاح", inv_breakdown: "تفصيل المخزون حسب الفرع", inv_branch: "الفرع", inv_quantity: "الكمية", inv_days_remaining: "أيام المخزون المتبقية", inv_based_on_forecast: "بناءً على التوقع", inv_based_on_actual: "بناءً على الفعلي", inv_monthly_consumption: "الاستهلاك الشهري", inv_daily_avg: "المتوسط اليومي", inv_status: "الحالة", inv_status_healthy: "جيد", inv_status_low: "منخفض", inv_status_critical: "حرج", inv_status_infinite: "غير محدود", inv_sept_required: "الكمية المطلوبة لسبتمبر", inv_not_required: "غير مطلوب", view_forecast: "📊 عرض التوقعات", view_actual: "📋 عرض الفعلي", view_insights: "💡 رؤى قابلة للتنفيذ", currentDateLabel: "التاريخ الحالي", kpi_total_budget: "صافي ميزانية الشراء", kpi_items_to_order: "الأصناف المطلوب شراؤها", kpi_savings: "التوفير المحتمل", kpi_overstock_value: "قيمة المخزون الزائد", kpi_forecast_accuracy: "دقة التوقع الإجمالية", chart_top10_title: "أعلى 10 مواد خام حسب تكلفة الشراء", chart_usage_title: "تكلفة الشراء حسب نوع الاستخدام", chart_inventory_title: "حالة سلامة المخزون", chart_critical_items_title: "أهم 5 أصناف حرجة", chart_overstocked_items_title: "أهم 5 أصناف ذات المخزون الزائد (حسب القيمة)", total: "الإجمالي", warehouse: "المستودع", branches: "الفروع", production: "الإنتاج" }
+        };
+
+        function updateDateTime() { const dateEl = document.getElementById('currentDate'); if (dateEl) { dateEl.textContent = new Date().toLocaleDateString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US', { year: 'numeric', month: 'long', day: 'numeric' }); } }
+        
+        function switchLanguage(lang) {
+            currentLang = lang;
+            document.body.dir = lang === 'ar' ? 'rtl' : 'ltr';
+            document.documentElement.lang = lang;
+            document.querySelectorAll('[data-lang]').forEach(el => {
+                const key = el.getAttribute('data-lang');
+                if (translations[lang] && translations[lang][key]) el.innerHTML = translations[lang][key];
+            });
+            updateDateTime();
+            if (completeRMForecast.length > 0) {
+                switchView(currentView);
+            }
+        }
+
+        const API_KEY = 'AIzaSyCnoLcmC_MpuI12NUK-E2l0B9KbsdC42C4';
+        const SPREADSHEET_ID = '1am8h6BiRT1ZK3bDHquMqETqEh2tIgDO7rnDk1VTf_io';
+        const SHEET_NAMES = ['Sales by Product', 'Sales by Modifier Options', 'Product Details', 'products_Inventory ingredients', 'products_modifires', 'Modifier Options', 'RM Details', 'RM Ingredients for Finish Good', 'Raw Material Purchases', 'Inventory Control', 'Available Quantity'];
+
+        async function fetchSheetData(sheetName) { const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(sheetName)}?key=${API_KEY}`; const response = await fetch(url); if (!response.ok) { throw new Error(`Could not fetch sheet: ${sheetName}. Status: ${response.statusText}`); } const data = await response.json(); return googleSheetValuesToJSON(data.values); }
+        
+        function googleSheetValuesToJSON(values) {
+            if (!values || values.length < 2) return [];
+            const headers = values[0].map(header => { if (typeof header !== 'string') return ''; return header.replace(/\s+/g, ' ').trim(); });
+            return values.slice(1).map(row => { const rowObject = {}; headers.forEach((header, index) => { rowObject[header] = row[index]; }); return rowObject; });
+        }
+
+        async function loadAndProcessData() {
+            const loadingMessageEl = document.getElementById('loadingMessage');
+            const progressSectionEl = document.getElementById('progressSection');
+            try {
+                loadingMessageEl.style.display = 'block';
+                progressSectionEl.style.display = 'none';
+                switchLanguage(currentLang);
+                updateProgress(10, 'Fetching data from Google Sheets...');
+                const allSheetData = await Promise.all(SHEET_NAMES.map(name => fetchSheetData(name)));
+                loadingMessageEl.style.display = 'none';
+                progressSectionEl.style.display = 'block'; 
+                updateProgress(20, 'All data loaded. Processing...');
+                const sheets = SHEET_NAMES.reduce((acc, name, index) => { acc[name] = allSheetData[index]; return acc; }, {});
+                processData(sheets);
+                updateProgress(100, 'Analysis complete!');
+                setTimeout(() => {
+                    progressSectionEl.style.display = 'none';
+                    switchView('insights');
+                }, 500);
+            } catch (error) {
+                console.error('Fatal Error:', error);
+                const errorEl = document.getElementById('loadingMessage');
+                errorEl.innerHTML = `<div style="padding: 20px; border: 2px solid red; background: #ffebeb; border-radius: 10px; text-align: center;"> <h2 style="color: red; margin: 0;">Error</h2> <p style="margin: 5px 0;">${error.message}</p> <p style="margin: 5px 0;">Please check your API Key and sheet names</p> </div>`;
+                errorEl.style.display = 'block';
+                progressSectionEl.style.display = 'none';
+            }
+        }
+
+        function processData(sheets) {
+            const { 'Sales by Product': salesByProduct, 'Sales by Modifier Options': salesByModifier, 'products_Inventory ingredients': productsInventoryIngredients, 'Modifier Options': modifierOptions, 'RM Ingredients for Finish Good': rmIngredientsForFinishGood, 'RM Details': rmDetails, 'Raw Material Purchases': rmPurchases, 'Inventory Control': inventoryControl, 'Available Quantity': availableQuantity } = sheets;
+            const normalizeSku = (sku) => sku ? String(sku).trim().toLowerCase() : null;
+            const safeParseFloat = (val) => parseFloat(String(val || '0').replace(/,/g, ''));
+            const aggregateByName = (salesData, nameField, skuField, localizedNameField) => {
+                const salesMap = new Map();
+                salesData.forEach(item => {
+                    const name = item[nameField]; if (!name) return;
+                    const quantity = safeParseFloat(item["Net Quantity"]); if (quantity <= 0) return;
+                    if (salesMap.has(name)) { salesMap.get(name).quantity += quantity; } 
+                    else { salesMap.set(name, { sku: item[skuField], name: name, name_localized: item[localizedNameField], quantity: quantity }); }
+                });
+                return Array.from(salesMap.values());
+            };
+            const aggregatedProductSales = aggregateByName(salesByProduct, 'Product', 'Product SKU', 'name_localized');
+            const aggregatedModifierSales = aggregateByName(salesByModifier, 'Modifier Option', 'Modifier Option SKU', 'name_localized');
+            const productSales = aggregatedProductSales.reduce((acc, p) => { const sku = normalizeSku(p.sku); if(sku) acc[sku] = { name: p.name, name_localized: p.name_localized, quantity: p.quantity }; return acc; }, {});
+            const modifierSales = aggregatedModifierSales.reduce((acc, m) => { const sku = normalizeSku(m.sku); if(sku) { if (!acc[sku]) acc[sku] = { name: m.name, name_localized: m.name_localized, quantity: 0 }; acc[sku].quantity += m.quantity; } return acc; }, {});
+            rmPurchases.forEach(p => { p.rawDate = new Date(p.Date); });
+            rmPurchases.sort((a, b) => (b.rawDate || 0) - (a.rawDate || 0));
+            const unitCosts = rmPurchases.reduce((acc, p) => { const sku = normalizeSku(p.SKU); if (sku && !acc[sku]) { const cost = parseFloat(String(p['Unit Cost (Include VAT)'] || '0').replace(/[^0-9.-]+/g, "")); if (!isNaN(cost)) acc[sku] = cost; } return acc; }, {});
+            const inventoryLookup = inventoryControl.reduce((acc, item) => { const sku = normalizeSku(item.SKU); if (!sku) return acc; const prodQty = safeParseFloat(item['Consumption From Production Quantity']); const orderQty = safeParseFloat(item['Consumption From Order Quantity']); if (!acc[sku]) acc[sku] = { prodConsumption: 0, orderConsumption: 0 }; acc[sku].prodConsumption += prodQty; acc[sku].orderConsumption += orderQty; return acc; }, {});
+            const availableQtyLookup = availableQuantity.reduce((acc, item) => { const sku = normalizeSku(item.SKU); if (!sku) return acc; const qty = safeParseFloat(item['Available Quantity']); if (!acc[sku]) { acc[sku] = { total: 0, breakdown: [] }; } acc[sku].total += qty; acc[sku].breakdown.push({ branch: item.Branch, quantity: qty }); return acc; }, {});
+            const itemDetailsLookup = rmDetails.reduce((acc, item) => { const sku = normalizeSku(item.sku); if(sku) { acc[sku] = { name: item.name, name_localized: item.name_localized, storageUnit: item.storage_unit || 'N/A', ingredientUnit: item.ingredient_unit || 'N/A', convFactor: parseFloat(item.storage_to_ingredient_factor) || 1 }; } return acc; }, {});
+            let rmConsumption = {}; detailedUsageData = {};
+            const addConsumption = (rmSku, amount, breakdown) => { if (!rmSku || isNaN(amount) || amount === 0) return; const key = normalizeSku(rmSku); if (!rmConsumption[key]) rmConsumption[key] = 0; if (!detailedUsageData[key]) detailedUsageData[key] = { breakdown: [], usageTypes: new Set() }; rmConsumption[key] += amount; detailedUsageData[key].breakdown.push(breakdown); detailedUsageData[key].usageTypes.add(breakdown.type.includes('direct') ? 'Direct' : 'Finished Good'); };
+            const processIngredients = (salesData, ingredientsData) => { 
+                Object.entries(salesData).forEach(([itemSku, item]) => { 
+                    const normalizedItemSku = normalizeSku(itemSku); 
+                    ingredientsData.filter(ing => normalizeSku(ing.product_sku) === normalizedItemSku || normalizeSku(ing.modifier_option_sku) === normalizedItemSku).forEach(ing => { 
+                        const ingQty = parseFloat(ing.quantity); if (!ingQty || ingQty <= 0) return; 
+                        const ingItemSku = ing.inventory_item_sku; 
+                        const isFinishedGood = ing.inventory_item_name && ing.inventory_item_name.toLowerCase().includes("(recipe)"); 
+                        const totalIngNeeded = item.quantity * ingQty; 
+                        if (!isFinishedGood) { addConsumption(ingItemSku, totalIngNeeded, { type: ing.product_sku ? 'type_direct_product' : 'type_direct_modifier', source: item.name, source_localized: item.name_localized, sourceQty: item.quantity, rmPerUnit: ingQty, totalRmUsed: totalIngNeeded }); } 
+                        else { const normIngItemSku = normalizeSku(ingItemSku); rmIngredientsForFinishGood.filter(r => normalizeSku(r.inventory_item_sku) === normIngItemSku).forEach(recipe => { const rmQty = parseFloat(recipe.quantity); if (rmQty > 0) { const unitOfFG = recipe['Storage Unit Of inventory_item_name (Finished Good & WIP)']; let totalFgInStorageUnits = totalIngNeeded; if (unitOfFG && (unitOfFG.toLowerCase() === 'kg' || unitOfFG.toLowerCase() === 'l')) { totalFgInStorageUnits = totalIngNeeded / 1000; } const totalRmUsed = totalFgInStorageUnits * rmQty; addConsumption(recipe.ingredient_item_sku, totalRmUsed, { type: ing.product_sku ? 'type_fg_product' : 'type_fg_modifier', source: item.name, source_localized: item.name_localized, sourceQty: item.quantity, finishedGood: ing.inventory_item_name, finishedGood_localized: ing.inventory_item_name_localized, finishedGoodUsed: totalFgInStorageUnits, rmPerFinishedGoodUnit: rmQty, totalRmUsed: totalRmUsed }); } }); } 
+                    }); 
+                }); 
+            };
+            updateProgress(60, 'Calculating consumption...');
+            processIngredients(productSales, productsInventoryIngredients);
+            processIngredients(modifierSales, modifierOptions);
+            updateProgress(90, 'Finalizing forecast & budget...');
+            completeRMForecast = Object.entries(rmConsumption).map(([rmSku, totalIngUnitQty]) => {
+                const normSku = normalizeSku(rmSku); const rmDetailsData = itemDetailsLookup[normSku]; if (!rmDetailsData) return null;
+                const unitCost = unitCosts[normSku] || 0;
+                const forecastedAugConsumption = totalIngUnitQty / (rmDetailsData.convFactor || 1);
+                const forecastedSeptRequired = forecastedAugConsumption * 1.15;
+                const inventoryData = inventoryLookup[normSku] || { prodConsumption: 0, orderConsumption: 0 };
+                const actualAugConsumption = inventoryData.prodConsumption + inventoryData.orderConsumption;
+                const actualSeptRequired = actualAugConsumption * 1.15;
+                const usageInfo = detailedUsageData[normSku] || { breakdown: [], usageTypes: new Set()};
+                let usageTypeKey = 'usageType_unknown'; if (usageInfo.usageTypes.has('Direct') && usageInfo.usageTypes.has('Finished Good')) usageTypeKey = 'usageType_both'; else if (usageInfo.usageTypes.has('Direct')) usageTypeKey = 'usageType_direct'; else if (usageInfo.usageTypes.has('Finished Good')) usageTypeKey = 'usageType_fg';
+                detailedUsageData[normSku] = { ...usageInfo, ...rmDetailsData, sku: rmSku, usageTypeKey, forecastedAugConsumption, forecastedSeptRequired, actualAugConsumption, actualSeptRequired, inventory: inventoryData, availableQty: availableQtyLookup[normSku] || { total: 0, breakdown: [] } };
+                return { ...rmDetailsData, sku: rmSku, usageTypeKey, forecastedAugConsumption, forecastedSeptRequired, actualAugConsumption, actualSeptRequired, unitCost: unitCost };
+            }).filter(item => item);
+        }
+
+        function switchView(view) {
+            currentView = view;
+            document.getElementById('toggle-insights').classList.toggle('active', view === 'insights');
+            document.getElementById('toggle-forecast').classList.toggle('active', view === 'forecast');
+            document.getElementById('toggle-actual').classList.toggle('active', view === 'actual');
+            document.getElementById('visualizationSection').style.display = view === 'insights' ? 'block' : 'none';
+            document.getElementById('resultsSection').style.display = view === 'forecast' || view === 'actual' ? 'block' : 'none';
+            if (view === 'insights') { renderVisualizations(); } else { displayResultsTable(view); }
+        }
+
+        function displayResultsTable(view) {
+            const T = translations[currentLang];
+            const currencyFormat = new Intl.NumberFormat(currentLang === 'ar' ? 'ar-SA' : 'en-US', { style: 'currency', currency: 'SAR' });
+            document.getElementById('tableHeaderRow').innerHTML = `<th>${T.th_rank}</th><th>${T.th_rmName}</th><th>${T.th_sku}</th><th>${T.th_unit}</th><th>${T.th_usageType}</th><th>${T.th_augConsumption}</th><th>${T.th_totalRequired}</th><th>${T.th_availableQty}</th><th>${T.th_netRequired}</th><th>${T.th_unitCost}</th><th>${T.th_totalCost}</th><th>${T.th_netRequiredCost}</th><th>${T.th_details}</th>`;
+            const tbody = document.getElementById('forecastBody');
+            tbody.innerHTML = '';
+            let grandNetPurchaseCost = 0;
+            let grandTotalRequiredCost = 0;
+            let grandAvailableStockValue = 0;
+            const dataForView = [...completeRMForecast];
+            dataForView.forEach(item => {
+                const normSku = String(item.sku).trim().toLowerCase();
+                const totalRequired = view === 'forecast' ? item.forecastedSeptRequired : item.actualSeptRequired;
+                const availableData = detailedUsageData[normSku]?.availableQty || { total: 0 };
+                item.totalRequired = totalRequired;
+                item.netRequired = Math.max(0, totalRequired - availableData.total);
+                item.purchaseCost = item.netRequired * item.unitCost;
+            });
+            dataForView.sort((a, b) => b.purchaseCost - a.purchaseCost);
+            const visibleData = dataForView.filter(item => (view === 'forecast' ? item.forecastedSeptRequired : item.actualSeptRequired) > 0);
+            visibleData.forEach((item, index) => {
+                const normSku = String(item.sku).trim().toLowerCase();
+                const consumption = view === 'forecast' ? item.forecastedAugConsumption : item.actualAugConsumption;
+                const totalRequiredCost = item.totalRequired * item.unitCost;
+                grandNetPurchaseCost += item.purchaseCost;
+                grandTotalRequiredCost += totalRequiredCost;
+                const availableData = detailedUsageData[normSku]?.availableQty || { total: 0, breakdown: [] };
+                grandAvailableStockValue += availableData.total * item.unitCost;
+                const breakdown = availableData.breakdown || [];
+                let mainWarehouseQty = 0;
+                let productionQty = 0;
+                let otherBranchesQty = 0;
+                breakdown.forEach(b => {
+                    const branchName = b.branch ? b.branch.toLowerCase() : '';
+                    const qty = b.quantity || 0;
+                    if (branchName.includes('production')) { productionQty += qty; } else if (branchName.includes('main')) { mainWarehouseQty += qty; } else { otherBranchesQty += qty; }
+                });
+                const availableQtyHtml = `<div style="font-size: 0.85em; text-align: center;"><div style="margin-bottom: 4px;" title="Total Available"><strong>${T.total}:</strong><span style="font-weight: bold; font-size: 1.1em;">${availableData.total.toLocaleString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US')}</span></div><div style="border-top: 1px solid #eee; padding-top: 4px; display: flex; justify-content: space-around; text-align: center;"><div><span style="display: block; font-size: 0.9em; color:var(--brand-secondary);">${T.branches}</span><strong style="color:var(--brand-secondary);">${otherBranchesQty.toLocaleString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US')}</strong></div><div><span style="display: block; font-size: 0.9em; color:var(--brand-accent);">${T.production}</span><strong style="color:var(--brand-accent);">${productionQty.toLocaleString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US')}</strong></div><div><span style="display: block; font-size: 0.9em; color:var(--brand-primary);">${T.warehouse}</span><strong style="color:var(--brand-primary);">${mainWarehouseQty.toLocaleString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US')}</strong></div></div></div>`;
+                const row = document.createElement('tr');
+                row.innerHTML = `<td><strong>${index + 1}</strong></td><td>${currentLang === 'ar' && item.name_localized ? item.name_localized : item.name}</td><td>${item.sku}</td><td><strong>${item.storageUnit}</strong></td><td>${T[item.usageTypeKey]}</td><td>${consumption.toLocaleString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US', { maximumFractionDigits: 2 })}</td><td>${item.totalRequired.toLocaleString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US', {maximumFractionDigits: 2})}</td><td>${availableQtyHtml}</td><td style="font-weight: bold; color: ${item.netRequired > 0 ? '#c0392b' : '#27ae60'};">${item.netRequired.toLocaleString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US', { maximumFractionDigits: 2 })}</td><td>${item.unitCost.toLocaleString(currentLang === 'ar' ? 'ar-SA' : 'en-US', { style: 'currency', currency: 'SAR' })}</td><td style="font-weight: bold;">${totalRequiredCost.toLocaleString(currentLang === 'ar' ? 'ar-SA' : 'en-US', { style: 'currency', currency: 'SAR' })}</td><td style="font-weight: bold; color: var(--brand-secondary);">${item.purchaseCost.toLocaleString(currentLang === 'ar' ? 'ar-SA' : 'en-US', { style: 'currency', currency: 'SAR' })}</td><td><div style="display: flex; flex-direction: column;"><button class="btn btn-details" onclick="showUsageDetails('${normSku}')">${T.viewDetails}</button><button class="btn btn-compare" onclick="showComparison('${normSku}')">${T.compare}</button><button class="btn btn-inventory" onclick="showInventoryAnalysis('${normSku}')">${T.inventoryAnalysis}</button></div></td>`;
+                tbody.appendChild(row);
+            });
+            document.getElementById('summaryCard').innerHTML = `<h2 data-lang="totalBudgetTitle">${T.totalBudgetTitle}</h2> <div class="summary-details"> <div class="summary-item"> <span>${T.summary_total_req}</span> <p>${currencyFormat.format(grandTotalRequiredCost)}</p> </div> <div class="summary-operator">-</div> <div class="summary-item"> <span>${T.summary_available_val}</span> <p>${currencyFormat.format(grandAvailableStockValue)}</p> </div> <div class="summary-operator">=</div> <div class="summary-item net-budget"> <span>${T.kpi_total_budget}</span> <p style="color: var(--brand-secondary);">${currencyFormat.format(grandNetPurchaseCost)}</p> </div> </div>`;
+        }
+        try {
+        if (window.parent) {
+            const dataToDownload = [...completeRMForecast];
+            dataToDownload.forEach(item => {
+                const totalRequired = view === 'forecast' ? item.forecastedSeptRequired : item.actualSeptRequired;
+                const availableData = detailedUsageData[item.sku]?.availableQty || { total: 0, breakdown: [] };
+                item.totalRequired = totalRequired;
+                item.netRequired = Math.max(0, totalRequired - availableData.total);
+                item.purchaseCost = item.netRequired * item.unitCost;
+            });
+            const tableData = {
+                type: 'FORECAST_TABLE_DATA',
+                payload: dataToDownload
+            };
+            parent.postMessage(tableData, '*');
+        }
+    } catch (e) {
+        console.error("Forecast table could not post data to parent:", e);
+    }
+        
+        function renderVisualizations() {
+            const T = translations[currentLang];
+            const currencyFormat = new Intl.NumberFormat(currentLang === 'ar' ? 'ar-SA' : 'en-US', { style: 'currency', currency: 'SAR' });
+            let totalPurchaseBudget = 0, itemsToPurchase = 0, potentialSavings = 0, overstockedValue = 0;
+            completeRMForecast.forEach(item => {
+                const totalRequired = item.forecastedSeptRequired;
+                const totalAvailable = detailedUsageData[item.sku]?.availableQty.total || 0;
+                const netRequired = Math.max(0, totalRequired - totalAvailable);
+                const dailyConsumption = item.actualAugConsumption / 31;
+                const daysRemaining = dailyConsumption > 0 ? totalAvailable / dailyConsumption : Infinity;
+                if (netRequired > 0) { itemsToPurchase++; totalPurchaseBudget += netRequired * item.unitCost; }
+                potentialSavings += (totalRequired - netRequired) * item.unitCost;
+                if (daysRemaining > 60) { overstockedValue += totalAvailable * item.unitCost; }
+            });
+            const totalForecastedConsumption = completeRMForecast.reduce((sum, item) => sum + item.forecastedAugConsumption, 0);
+            const totalActualConsumption = completeRMForecast.reduce((sum, item) => sum + item.actualAugConsumption, 0);
+            const forecastAccuracy = totalActualConsumption > 0 ? (1 - Math.abs(totalForecastedConsumption - totalActualConsumption) / totalActualConsumption) : 1;
+            document.getElementById('kpiTotalBudget').textContent = currencyFormat.format(totalPurchaseBudget);
+            document.getElementById('kpiItemsToOrder').textContent = itemsToPurchase;
+            document.getElementById('kpiSavings').textContent = currencyFormat.format(potentialSavings);
+            document.getElementById('kpiOverstock').textContent = currencyFormat.format(overstockedValue);
+            document.getElementById('kpiForecastAccuracy').textContent = `${(forecastAccuracy * 100).toFixed(1)}%`;
+            Object.values(chartInstances).forEach(chart => chart.destroy());
+            const top10Data = [...completeRMForecast].map(item => { const totalRequired = item.forecastedSeptRequired; const totalAvailable = detailedUsageData[item.sku]?.availableQty.total || 0; const netRequired = Math.max(0, totalRequired - totalAvailable); return {...item, purchaseCost: netRequired * item.unitCost}; }).sort((a,b) => b.purchaseCost - a.purchaseCost).slice(0, 10);
+            chartInstances.top10 = new Chart(document.getElementById('top10CostChart').getContext('2d'), { type: 'bar', data: { labels: top10Data.map(item => currentLang === 'ar' && item.name_localized ? item.name_localized : item.name), datasets: [{ label: T.th_totalCost, data: top10Data.map(item => item.purchaseCost), backgroundColor: 'rgba(149, 108, 42, 0.8)', borderColor: 'rgba(149, 108, 42, 1)', borderWidth: 1 }] }, options: { indexAxis: 'y', responsive: true, plugins: { legend: { display: false } } } });
+            const usageCosts = completeRMForecast.reduce((acc, item) => { const totalRequired = item.forecastedSeptRequired; const totalAvailable = detailedUsageData[item.sku]?.availableQty.total || 0; const netRequired = Math.max(0, totalRequired - totalAvailable); const purchaseCost = netRequired * item.unitCost; if (item.usageTypeKey === 'usageType_direct') acc.direct += purchaseCost; else if (item.usageTypeKey === 'usageType_fg') acc.fg += purchaseCost; else if (item.usageTypeKey === 'usageType_both') acc.both += purchaseCost; return acc; }, { direct: 0, fg: 0, both: 0 });
+            chartInstances.usage = new Chart(document.getElementById('usageTypeChart').getContext('2d'), { type: 'doughnut', data: { labels: [T.usageType_direct, T.usageType_fg, T.usageType_both], datasets: [{ data: [usageCosts.direct, usageCosts.fg, usageCosts.both], backgroundColor: ['#284b44', '#956c2a', '#ea8990'] }] }, options: { responsive: true, plugins: { legend: { position: 'top' } } } });
+            const getStatus = (days) => { if (days === Infinity || days > 30) return T.inv_status_healthy; if (days <= 7) return T.inv_status_critical; if (days <= 15) return T.inv_status_low; return T.inv_status_healthy; };
+            const inventoryStatus = completeRMForecast.reduce((acc, item) => { const data = detailedUsageData[item.sku]; if (!data) return acc; const dailyActual = data.actualAugConsumption / 31; const daysRemaining = dailyActual > 0.01 ? data.availableQty.total / dailyActual : Infinity; const status = getStatus(daysRemaining); acc[status] = (acc[status] || 0) + 1; return acc; }, {});
+            const statusColors = { [T.inv_status_healthy]: '#284b44', [T.inv_status_critical]: '#ea8990', [T.inv_status_low]: '#956c2a', [T.inv_status_infinite]: '#284b44' };
+            chartInstances.inventory = new Chart(document.getElementById('inventoryStatusChart').getContext('2d'), { type: 'doughnut', data: { labels: Object.keys(inventoryStatus), datasets: [{ data: Object.values(inventoryStatus), backgroundColor: Object.keys(inventoryStatus).map(status => statusColors[status]) }] }, options: { responsive: true, plugins: { legend: { position: 'top' } } } });
+            const criticalItems = completeRMForecast.map(item => { const data = detailedUsageData[item.sku]; if (!data) return null; const dailyActual = data.actualAugConsumption / 31; const daysRemaining = dailyActual > 0.01 ? data.availableQty.total / dailyActual : Infinity; return { name: currentLang === 'ar' && item.name_localized ? item.name_localized : item.name, days: daysRemaining, unit: item.storageUnit, available: data.availableQty.total }; }).filter(item => item && item.days <= 7).sort((a, b) => a.days - b.days).slice(0, 5);
+            const criticalItemsContainer = document.getElementById('criticalItemsContainer');
+            if (criticalItems.length > 0) { let html = '<ul style="list-style: none; padding: 0; margin: 0;">'; criticalItems.forEach(item => { const daysText = currentLang === 'ar' ? `متبقي ${item.days.toFixed(1)} أيام` : `${item.days.toFixed(1)} Days Left`; const availableText = currentLang === 'ar' ? 'المتاح' : 'Available'; html += `<li style="padding: 10px 0; border-bottom: 1px solid #eee;"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;"><strong style="color: var(--brand-primary);">${item.name}</strong><span style="background: var(--brand-accent); color: white; padding: 3px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold; flex-shrink: 0; margin-left: 10px;">${daysText}</span></div><small style="color: #666;">${availableText}: ${item.available.toLocaleString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US')} ${item.unit}</small></li>`; }); html += '</ul>'; criticalItemsContainer.innerHTML = html; } 
+            else { const noItemsText = currentLang === 'ar' ? 'لا توجد أصناف في حالة حرجة. عمل رائع! 👍' : 'No items in critical condition. Great job! 👍'; criticalItemsContainer.innerHTML = `<p style="text-align:center; color:#555; padding-top: 20px;">${noItemsText}</p>`; }
+            const overstockedItems = completeRMForecast.map(item => { const data = detailedUsageData[item.sku]; if (!data) return null; const dailyActual = data.actualAugConsumption / 31; const daysRemaining = dailyActual > 0.01 ? data.availableQty.total / dailyActual : Infinity; return { name: currentLang === 'ar' && item.name_localized ? item.name_localized : item.name, days: daysRemaining, unit: item.storageUnit, value: data.availableQty.total * item.unitCost }; }).filter(item => item && item.days > 60).sort((a, b) => b.value - a.value).slice(0, 5);
+            const overstockedItemsContainer = document.getElementById('overstockedItemsContainer');
+            if (overstockedItems.length > 0) { let html = '<ul style="list-style: none; padding: 0; margin: 0;">'; overstockedItems.forEach(item => { const valueText = currencyFormat.format(item.value); html += `<li style="padding: 10px 0; border-bottom: 1px solid #eee;"><div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;"><strong style="color: var(--brand-primary);">${item.name}</strong><span style="background: var(--warning-color); color: white; padding: 3px 8px; border-radius: 12px; font-size: 0.8em; font-weight: bold; flex-shrink: 0; margin-left: 10px;">${valueText}</span></div><small style="color: #666;">${item.days === Infinity ? 'Infinite' : item.days.toFixed(0)} days of stock</small></li>`; }); html += '</ul>'; overstockedItemsContainer.innerHTML = html; }
+            else { const noItemsText = currentLang === 'ar' ? 'لا يوجد مخزون زائد. 👍' : 'No overstocked items. 👍'; overstockedItemsContainer.innerHTML = `<p style="text-align:center; color:#555; padding-top: 20px;">${noItemsText}</p>`; }
+        }
+        try {
+        if (window.parent) {
+            const forecastingData = {
+                type: 'FORECASTING_DATA',
+                payload: {
+                    kpiTotalBudget: document.getElementById('kpiTotalBudget').textContent,
+                    kpiItemsToOrder: document.getElementById('kpiItemsToOrder').textContent,
+                    kpiSavings: document.getElementById('kpiSavings').textContent,
+                    kpiOverstock: document.getElementById('kpiOverstock').textContent,
+                    kpiForecastAccuracy: document.getElementById('kpiForecastAccuracy').textContent,
+                    // Detailed forecast data
+                    forecastDetails: completeRMForecast.map(item => ({
+                        name: item.name,
+                        sku: item.sku,
+                        totalRequired: item.forecastedSeptRequired,
+                        netRequired: Math.max(0, item.forecastedSeptRequired - (detailedUsageData[item.sku]?.availableQty.total || 0)),
+                        unitCost: item.unitCost,
+                        overstockedDays: (detailedUsageData[item.sku]?.availableQty.total || 0) / (item.actualAugConsumption / 31)
+                    }))
+                }
+            };
+            parent.postMessage(forecastingData, '*');
+        }
+    } catch (e) {
+        console.error("Forecasting dashboard could not post message to parent:", e);
+    }
+        
+        function showUsageDetails(rmSku) {
+            const data = detailedUsageData[rmSku]; if (!data) return; const T = translations[currentLang];
+            const totalRequired = currentView === 'forecast' ? data.forecastedSeptRequired : data.actualSeptRequired;
+            const availableQty = data.availableQty.total;
+            const netRequired = Math.max(0, totalRequired - availableQty);
+            const purchaseCalcHtml = `<div class="dash-card" style="grid-column: 1 / -1;"><h4>${T.modal_purchaseCalc} (${data.storageUnit})</h4><div style="display: flex; justify-content: space-around; align-items: center; font-size: 1.4em; text-align: center; margin-top: 15px;"><div> <span style="font-size: 0.6em; font-weight: 600;">${T.modal_totalReq}</span><br> ${totalRequired.toLocaleString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US', {maximumFractionDigits: 2})} </div><div style="font-size: 1.5em; color: #aaa;">-</div><div> <span style="font-size: 0.6em; font-weight: 600;">${T.inv_total_available}</span><br> ${availableQty.toLocaleString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US', {maximumFractionDigits: 2})} </div><div style="font-size: 1.5em; color: #aaa;">=</div><div style="color: var(--brand-secondary);"> <span style="font-size: 0.6em; font-weight: 600;">${T.modal_netRequired}</span><br> <strong>${netRequired.toLocaleString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US', {maximumFractionDigits: 2})}</strong> </div></div></div>`;
+            let directC = 0, fgC = 0; const consumerMap = {}; let sourceP = new Set(), sourceM = new Set();
+            (data.breakdown || []).forEach(u => { if (u.type.includes('direct')) directC += u.totalRmUsed; else fgC += u.totalRmUsed; const sourceName = currentLang === 'ar' && u.source_localized ? u.source_localized : u.source; if (!consumerMap[sourceName]) consumerMap[sourceName] = 0; consumerMap[sourceName] += u.totalRmUsed; if (u.type.includes('product')) sourceP.add(sourceName); else sourceM.add(sourceName); });
+            const totalForecastedConsumption = directC + fgC; const directP = totalForecastedConsumption > 0 ? (directC / totalForecastedConsumption * 100) : 0; const topConsumers = Object.entries(consumerMap).sort((a, b) => b[1] - a[1]).slice(0, 3);
+            const prodConsumptionSU = data.inventory.prodConsumption; const orderConsumptionSU = data.inventory.orderConsumption; const totalInvConsumptionSU = prodConsumptionSU + orderConsumptionSU; const prodPercent = totalInvConsumptionSU > 0 ? (prodConsumptionSU / totalInvConsumptionSU * 100) : 0; const orderPercent = 100 - prodPercent;
+            document.getElementById('modalTitle').textContent = `${T.viewDetails}: ${currentLang === 'ar' && data.name_localized ? data.name_localized : data.name}`;
+            document.getElementById('modalBody').innerHTML = `<div class="dash-grid">${purchaseCalcHtml}<div class="dash-card"><h4>${T.modal_usageType}</h4><p>${T[data.usageTypeKey]}</p></div><div class="dash-card"><h4>${T.modal_sourceProducts}</h4><p>${sourceP.size}</p></div><div class="dash-card"><h4>${T.modal_sourceModifiers}</h4><p>${sourceM.size}</p></div></div><div class="analysis-section"><div class="chart-container"><h4>${T.modal_analysis}</h4><div class="bar-label"><span>${T.modal_direct}</span><span>${directP.toFixed(1)}%</span></div><div class="bar"><div style="width:${directP}%; background:var(--brand-primary);"></div></div><div class="bar-label"><span>${T.modal_viaFG}</span><span>${(100 - directP).toFixed(1)}%</span></div><div class="bar"><div style="width:${100 - directP}%; background:var(--brand-secondary);"></div></div></div><div class="chart-container"><h4>${T.modal_topConsumers}</h4>${topConsumers.map(c => `<div class="bar-label"><span>${c[0]}</span><span>${(c[1]/totalForecastedConsumption*100).toFixed(1)}%</span></div>`).join('') || `<p>${T.loadingDesc}</p>`}</div></div><h3 style="text-align:center; margin-top:30px;">${T.modal_detailedLog}</h3><div class="dash-card" style="margin-bottom:20px; text-align:center; border-color: var(--brand-primary);"><h4 style="font-size:1.2em;">${T.modal_log_totalSum}</h4><p style="font-size: 2.2em;">${(totalForecastedConsumption).toLocaleString(undefined, { maximumFractionDigits: 3 })} ${data.ingredientUnit}</p></div>${(data.breakdown || []).sort((a,b)=>b.totalRmUsed - a.totalRmUsed).map((u,i) => `<div class="consumption-item" style="background:white;padding:15px;border-radius:8px;margin-bottom:10px;"><h4>#${i+1}: ${currentLang==='ar'&&u.source_localized?u.source_localized:u.source}</h4><ul style="list-style-type:none;padding-left:0;"><li><strong>${T.modal_log_type}:</strong> ${T[u.type]}</li><li><strong>${T.modal_log_salesQty}:</strong> ${u.sourceQty.toLocaleString()}</li>${u.type.includes('direct')?`<li><strong>${T.modal_log_rmPerItem}:</strong> ${u.rmPerUnit}</li>`:`<li><strong>${T.modal_log_recipe}:</strong> ${currentLang==='ar'&&u.finishedGood_localized?u.finishedGood_localized:u.finishedGood}</li><li><strong>${T.modal_log_recipeQty}:</strong> ${u.finishedGoodUsed.toLocaleString(undefined,{maximumFractionDigits:3})}</li><li><strong>${T.modal_log_rmPerRecipe}:</strong> ${u.rmPerFinishedGoodUnit}</li>`}<li style="font-weight:bold; color: var(--brand-secondary);"><strong>${T.modal_log_totalConsumed}:</strong> ${u.totalRmUsed.toLocaleString(undefined,{maximumFractionDigits:3})} ${data.ingredientUnit}</li></ul></div>`).join('')}<hr style="margin: 40px 0 20px 0;"/><div class="analysis-section"><div class="chart-container" style="grid-column: 1 / -1;"><h4>${T.modal_inv_consumption_title} <strong>${totalInvConsumptionSU.toLocaleString(undefined, {maximumFractionDigits: 2})} ${data.storageUnit}</strong></h4><div class="bar-label"><span>${T.modal_inv_prod_consumption} (${prodConsumptionSU.toLocaleString(undefined, {maximumFractionDigits: 2})} ${data.storageUnit})</span><span>${prodPercent.toFixed(1)}%</span></div><div class="bar"><div style="width:${prodPercent}%; background:var(--brand-primary);"></div></div><div class="bar-label"><span>${T.modal_inv_order_consumption} (${orderConsumptionSU.toLocaleString(undefined, {maximumFractionDigits: 2})} ${data.storageUnit})</span><span>${orderPercent.toFixed(1)}%</span></div><div class="bar"><div style="width:${orderPercent}%; background:var(--brand-accent);"></div></div></div></div>`;
+            document.getElementById('usageModal').style.display = 'block';
+        }
+
+        function showComparison(rmSku) {
+            const data = detailedUsageData[rmSku]; if (!data) return; const T = translations[currentLang];
+            const forecasted = data.forecastedAugConsumption; const actual = data.actualAugConsumption;
+            const variance = forecasted - actual;
+            const variancePercent = actual > 0 ? (variance / actual * 100) : (forecasted > 0 ? 100 : 0);
+            let varianceColor = '#555'; let varianceText = '';
+            if (variance > 0.1) { varianceColor = '#28a745'; varianceText = `(${T.comparison_over_forecast})`;} 
+            else if (variance < -0.1) { varianceColor = '#dc3545'; varianceText = `(${T.comparison_under_forecast})`;}
+            document.getElementById('comparisonModalTitle').textContent = `${T.comparison_title}: ${currentLang === 'ar' && data.name_localized ? data.name_localized : data.name}`;
+            document.getElementById('comparisonModalBody').innerHTML = `<div class="dash-grid"><div class="dash-card" style="border-left-color: var(--brand-primary);"><h4>${T.comparison_forecasted}</h4><p>${forecasted.toLocaleString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US', {maximumFractionDigits: 2})} ${data.storageUnit}</p></div><div class="dash-card" style="border-left-color: var(--brand-accent);"><h4>${T.comparison_actual}</h4><p>${actual.toLocaleString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US', {maximumFractionDigits: 2})} ${data.storageUnit}</p></div><div class="dash-card" style="border-left-color: ${varianceColor};"><h4>${T.comparison_variance} <span style="font-weight:normal; font-size: 0.8em;">${varianceText}</span></h4><p style="color:${varianceColor};">${variance.toLocaleString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US', {maximumFractionDigits: 2})} (${variancePercent.toFixed(1)}%)</p></div></div>`;
+            document.getElementById('comparisonModal').style.display = 'block';
+        }
+
+        function showInventoryAnalysis(rmSku) {
+            const data = detailedUsageData[rmSku]; if (!data) return; const T = translations[currentLang];
+            const totalAvailable = data.availableQty.total; const monthlyForecasted = data.forecastedAugConsumption; const dailyForecasted = monthlyForecasted / 31; const daysRemainingForecast = dailyForecasted > 0.01 ? totalAvailable / dailyForecasted : Infinity; const monthlyActual = data.actualAugConsumption; const dailyActual = monthlyActual / 31; const daysRemainingActual = dailyActual > 0.01 ? totalAvailable / dailyActual : Infinity;
+            const getStatus = (days) => { if (days === Infinity) return { color: '#284b44', text: T.inv_status_infinite }; if (days <= 7) return { color: '#ea8990', text: T.inv_status_critical }; if (days <= 15) return { color: '#956c2a', text: T.inv_status_low }; return { color: '#284b44', text: T.inv_status_healthy }; };
+            const forecastStatus = getStatus(daysRemainingForecast); const actualStatus = getStatus(daysRemainingActual);
+            document.getElementById('inventoryModalTitle').textContent = `${T.inv_title}: ${currentLang === 'ar' && data.name_localized ? data.name_localized : data.name}`;
+            document.getElementById('inventoryModalBody').innerHTML = `<div class="dash-card" style="margin-bottom: 20px; text-align: center; border-left-color: var(--brand-primary);"><h4>${T.inv_total_available}</h4><p style="font-size: 3em;">${totalAvailable.toLocaleString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US')} ${data.storageUnit}</p></div><div class="analysis-section"><div class="chart-container"><h4>${T.inv_based_on_forecast}</h4><p><strong>${T.inv_monthly_consumption}:</strong> ${monthlyForecasted.toLocaleString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US', {maximumFractionDigits:2})} ${data.storageUnit}</p><p><strong>${T.inv_daily_avg}:</strong> ${dailyForecasted.toLocaleString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US', {maximumFractionDigits:2})} ${data.storageUnit}</p><hr><p style="font-size: 1.5em;"><strong>${T.inv_days_remaining}:</strong> ${daysRemainingForecast === Infinity ? '&#8734;' : daysRemainingForecast.toFixed(1)}</p><p><strong>${T.inv_status}:</strong> <span class="status-badge" style="background-color:${forecastStatus.color};">${forecastStatus.text}</span></p><p><strong>${T.inv_sept_required}:</strong> ${daysRemainingForecast > 30 ? T.inv_not_required : data.forecastedSeptRequired.toLocaleString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US', {maximumFractionDigits:2}) + ` ${data.storageUnit}`}</p></div><div class="chart-container"><h4>${T.inv_based_on_actual}</h4><p><strong>${T.inv_monthly_consumption}:</strong> ${monthlyActual.toLocaleString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US', {maximumFractionDigits:2})} ${data.storageUnit}</p><p><strong>${T.inv_daily_avg}:</strong> ${dailyActual.toLocaleString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US', {maximumFractionDigits:2})} ${data.storageUnit}</p><hr><p style="font-size: 1.5em;"><strong>${T.inv_days_remaining}:</strong> ${daysRemainingActual === Infinity ? '&#8734;' : daysRemainingActual.toFixed(1)}</p><p><strong>${T.inv_status}:</strong> <span class="status-badge" style="background-color:${actualStatus.color};">${actualStatus.text}</span></p><p><strong>${T.inv_sept_required}:</strong> ${daysRemainingActual > 30 ? T.inv_not_required : data.actualSeptRequired.toLocaleString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US', {maximumFractionDigits:2}) + ` ${data.storageUnit}`}</p></div></div><div class="chart-container" style="margin-top: 20px;"><h4>${T.inv_breakdown}</h4><div class="table-container" style="max-height: 250px;"><table><thead><tr><th>${T.inv_branch}</th><th>${T.inv_quantity}</th></tr></thead><tbody>${(data.availableQty.breakdown || []).sort((a,b) => b.quantity - a.quantity).map(b => `<tr><td>${b.branch}</td><td>${b.quantity.toLocaleString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US')} ${data.storageUnit}</td></tr>`).join('')}</tbody></table></div></div>`;
+            document.getElementById('inventoryModal').style.display = 'block';
+        }
+        
+        function closeAllModals() { document.getElementById('usageModal').style.display = 'none'; document.getElementById('comparisonModal').style.display = 'none'; document.getElementById('inventoryModal').style.display = 'none'; }
+        window.onclick = function (event) { if (event.target.classList.contains('modal')) { closeAllModals(); } }
+        
+        function updateProgress(percent, text) { 
+            document.getElementById('progressFill').style.width = percent + '%'; 
+            const progressTextEl = document.getElementById('progressText');
+            if(progressTextEl) progressTextEl.textContent = text;
+        }
+        
+        function downloadCSV() {
+            const T = translations[currentLang];
+            const headers = [T.th_rank, T.th_rmName, T.th_sku, T.th_unit, T.th_usageType, T.th_augConsumption, T.th_totalRequired, `${T.th_availableQty} (${T.total})`, `${T.th_availableQty} (${T.branches})`, `${T.th_availableQty} (${T.production})`, `${T.th_availableQty} (${T.warehouse})`, T.th_netRequired, T.th_unitCost, T.th_totalCost, T.th_netRequiredCost];
+            let csvContent = headers.join(',') + '\n';
+            const dataToDownload = [...completeRMForecast];
+            dataToDownload.forEach(item => {
+                const normSku = String(item.sku).trim().toLowerCase();
+                const totalRequired = currentView === 'forecast' ? item.forecastedSeptRequired : item.actualSeptRequired;
+                const availableData = detailedUsageData[normSku]?.availableQty || { total: 0, breakdown: [] };
+                item.totalRequired = totalRequired;
+                item.netRequired = Math.max(0, totalRequired - availableData.total);
+                item.purchaseCost = item.netRequired * item.unitCost;
+            });
+            dataToDownload.sort((a,b) => b.purchaseCost - a.purchaseCost);
+            dataToDownload.forEach((item, index) => {
+                const normSku = String(item.sku).trim().toLowerCase();
+                const consumption = currentView === 'forecast' ? item.forecastedAugConsumption : item.actualAugConsumption;
+                const availableData = detailedUsageData[normSku]?.availableQty || { total: 0, breakdown: [] };
+                const breakdown = availableData.breakdown || [];
+                let mainWarehouseQty = 0;
+                let productionQty = 0;
+                let otherBranchesQty = 0;
+                breakdown.forEach(b => {
+                    const branchName = b.branch ? b.branch.toLowerCase() : '';
+                    const qty = b.quantity || 0;
+                    if (branchName.includes('production')) { productionQty += qty; } else if (branchName.includes('main')) { mainWarehouseQty += qty; } else { otherBranchesQty += qty; }
+                });
+                const totalRequiredCost = item.totalRequired * item.unitCost;
+                const row = [index + 1, `"${(currentLang==='ar'&&item.name_localized?item.name_localized:item.name).replace(/"/g,'""')}"`, item.sku, item.storageUnit, T[item.usageTypeKey], consumption, item.totalRequired, availableData.total, otherBranchesQty, productionQty, mainWarehouseQty, item.netRequired, item.unitCost, totalRequiredCost, item.purchaseCost];
+                csvContent += row.join(',') + '\n';
+            });
+            const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a"); link.href = URL.createObjectURL(blob); 
+            link.download = `RM_Purchase_Plan_${currentView}_${new Date().toISOString().slice(0,10)}.csv`;
+            link.click();
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            loadAndProcessData();
+        });
+</script>
+</body>
+</html>

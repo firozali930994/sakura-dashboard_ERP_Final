@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sakura ERP - Admin</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#0f172a; color:#e2e8f0; margin:0; }
+      header { display:flex; justify-content:space-between; align-items:center; padding:16px 20px; background:#111827; border-bottom:1px solid #1f2937; }
+      main { display:grid; grid-template-columns: 1fr 1fr; gap:20px; padding:20px; }
+      .card { background:#111827; border:1px solid #1f2937; border-radius:12px; padding:16px; }
+      h2 { margin:0 0 12px; font-size:18px; }
+      table { width:100%; border-collapse: collapse; }
+      th, td { text-align:left; padding:8px; border-bottom:1px solid #1f2937; font-size:14px; }
+      input, select { width:100%; padding:8px 10px; border-radius:8px; border:1px solid #334155; background:#0b1220; color:#e2e8f0; }
+      button { padding:10px 12px; border:none; border-radius:8px; background:#4f46e5; color:white; font-weight:600; cursor:pointer; }
+      .row { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+      .row-3 { display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; }
+      .muted { color:#94a3b8; font-size:13px; }
+      a { color:#60a5fa; text-decoration:none; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div><strong>Admin</strong> · <span id="me" class="muted"></span></div>
+      <nav>
+        <a href="/login.html">Logout</a>
+      </nav>
+    </header>
+    <main>
+      <section class="card">
+        <h2>Users</h2>
+        <table>
+          <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th></tr></thead>
+          <tbody id="users"></tbody>
+        </table>
+      </section>
+      <section class="card">
+        <h2>Create User</h2>
+        <div class="row">
+          <div>
+            <label class="muted">Name</label>
+            <input id="name" />
+          </div>
+          <div>
+            <label class="muted">Email</label>
+            <input id="email" />
+          </div>
+        </div>
+        <div class="row-3" style="margin-top:10px;">
+          <div>
+            <label class="muted">Password</label>
+            <input id="password" type="password" />
+          </div>
+          <div>
+            <label class="muted">Role</label>
+            <select id="role">
+              <option>admin</option>
+              <option selected>manager</option>
+              <option>staff</option>
+            </select>
+          </div>
+          <div style="display:flex; align-items:end;">
+            <button id="create">Create</button>
+          </div>
+        </div>
+        <div id="msg" class="muted" style="margin-top:10px; min-height:20px;"></div>
+      </section>
+    </main>
+
+    <script>
+      const token = localStorage.getItem('sakura_token');
+      const user = JSON.parse(localStorage.getItem('sakura_user') || 'null');
+      if (!token) window.location.href = '/login.html';
+      document.getElementById('me').textContent = user ? `${user.name} (${user.role})` : '';
+
+      async function api(path, options = {}) {
+        const res = await fetch(path, {
+          ...options,
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}`, ...(options.headers||{}) }
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Request failed');
+        return data;
+      }
+
+      async function loadUsers() {
+        const rows = await api('/api/users');
+        const tbody = document.getElementById('users');
+        tbody.innerHTML = rows.map(r => `<tr><td>${r.id}</td><td>${r.name}</td><td>${r.email}</td><td>${r.role}</td></tr>`).join('');
+      }
+
+      document.getElementById('create').addEventListener('click', async () => {
+        const name = document.getElementById('name').value;
+        const email = document.getElementById('email').value;
+        const password = document.getElementById('password').value;
+        const role = document.getElementById('role').value;
+        const msg = document.getElementById('msg');
+        msg.textContent = 'Creating...';
+        try {
+          await api('/api/auth/register', { method: 'POST', body: JSON.stringify({ name, email, password, role }) });
+          msg.textContent = 'User created';
+          loadUsers();
+        } catch (e) {
+          msg.textContent = e.message;
+        }
+      });
+
+      loadUsers();
+    </script>
+  </body>
+  </html>
+
+

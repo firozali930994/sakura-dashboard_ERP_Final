@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sakura ERP - Login</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif; background:#0f172a; color:#e2e8f0; display:flex; align-items:center; justify-content:center; height:100vh; margin:0; }
+      .card { width: 360px; background:#111827; padding:24px; border-radius:12px; box-shadow: 0 10px 30px rgba(0,0,0,.4); }
+      h1 { margin:0 0 16px; font-size:22px; }
+      label { display:block; font-size:14px; margin:10px 0 6px; color:#cbd5e1; }
+      input { width:100%; padding:10px 12px; border-radius:8px; border:1px solid #334155; background:#0b1220; color:#e2e8f0; }
+      button { margin-top:16px; width:100%; padding:10px 12px; border:none; border-radius:8px; background:#4f46e5; color:white; font-weight:600; cursor:pointer; }
+      .msg { margin-top:10px; min-height:22px; font-size:13px; }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Login</h1>
+      <form id="loginForm">
+        <label for="email">Email</label>
+        <input id="email" name="email" type="email" value="admin@sakura.local" required />
+        <label for="password">Password</label>
+        <input id="password" name="password" type="password" value="Admin@1234" required />
+        <button type="submit">Sign in</button>
+      </form>
+      
+      <!-- Biometric Login Option -->
+      <div id="biometric-login" class="hidden" style="margin-top: 16px;">
+        <div style="text-align: center; margin-bottom: 12px; color: #94a3b8; font-size: 14px;">Or</div>
+        <button id="biometric-btn" style="background: #059669; display: flex; align-items: center; justify-content: center; gap: 8px;">
+          <i class="fas fa-fingerprint"></i>
+          Sign in with Biometric
+        </button>
+      </div>
+      
+      <div class="msg" id="msg"></div>
+      <div style="margin-top:10px; font-size:13px;">
+        New here? <a href="/signup.html" style="color:#60a5fa">Create an account</a>
+      </div>
+    </div>
+
+    <script>
+      const form = document.getElementById('loginForm');
+      const msg = document.getElementById('msg');
+      const biometricLogin = document.getElementById('biometric-login');
+      const biometricBtn = document.getElementById('biometric-btn');
+
+      // Check for biometric support and show option
+      document.addEventListener('DOMContentLoaded', () => {
+        if (window.PublicKeyCredential) {
+          biometricLogin.classList.remove('hidden');
+        }
+      });
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        msg.textContent = 'Signing in...';
+        try {
+          const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              email: document.getElementById('email').value,
+              password: document.getElementById('password').value,
+            })
+          });
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || 'Login failed');
+          localStorage.setItem('sakura_token', data.token);
+          localStorage.setItem('sakura_user', JSON.stringify(data.user));
+          msg.textContent = 'Success! Redirecting...';
+          window.location.href = '/admin.html';
+        } catch (err) {
+          msg.textContent = err.message;
+        }
+      });
+
+      // Biometric login
+      biometricBtn.addEventListener('click', async () => {
+        const email = document.getElementById('email').value;
+        if (!email) {
+          msg.textContent = 'Please enter your email first';
+          return;
+        }
+
+        msg.textContent = 'Starting biometric authentication...';
+        biometricBtn.disabled = true;
+
+        try {
+          // Begin biometric authentication
+          const beginRes = await fetch('/api/auth/biometric/login/begin', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+          });
+
+          if (!beginRes.ok) {
+            const errorData = await beginRes.json();
+            throw new Error(errorData.error || 'Biometric authentication not available');
+          }
+
+          const options = await beginRes.json();
+
+          // Convert options to WebAuthn format
+          const publicKeyCredentialRequestOptions = {
+            challenge: new Uint8Array(Object.values(options.challenge)),
+            allowCredentials: options.allowCredentials.map(cred => ({
+              id: new Uint8Array(Object.values(cred.id)),
+              type: cred.type,
+              transports: cred.transports
+            })),
+            timeout: options.timeout,
+            userVerification: options.userVerification
+          };
+
+          // Get credential
+          const credential = await navigator.credentials.get({
+            publicKey: publicKeyCredentialRequestOptions
+          });
+
+          // Convert credential to sendable format
+          const credentialForServer = {
+            id: credential.id,
+            rawId: Array.from(new Uint8Array(credential.rawId)),
+            response: {
+              authenticatorData: Array.from(new Uint8Array(credential.response.authenticatorData)),
+              clientDataJSON: Array.from(new Uint8Array(credential.response.clientDataJSON)),
+              signature: Array.from(new Uint8Array(credential.response.signature)),
+              userHandle: credential.response.userHandle ? Array.from(new Uint8Array(credential.response.userHandle)) : null
+            },
+            type: credential.type
+          };
+
+          // Complete authentication
+          const completeRes = await fetch('/api/auth/biometric/login/complete', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ credential: credentialForServer })
+          });
+
+          const data = await completeRes.json();
+          if (!completeRes.ok) throw new Error(data.error || 'Biometric authentication failed');
+
+          localStorage.setItem('sakura_token', data.token);
+          localStorage.setItem('sakura_user', JSON.stringify(data.user));
+          msg.textContent = 'Biometric login successful!';
+          setTimeout(() => {
+            window.location.href = '/admin.html';
+          }, 1000);
+
+        } catch (err) {
+          console.error('Biometric login failed:', err);
+          msg.textContent = err.message;
+        } finally {
+          biometricBtn.disabled = false;
+        }
+      });
+    </script>
+  </body>
+  </html>
+
+

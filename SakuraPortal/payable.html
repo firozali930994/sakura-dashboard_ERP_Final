@@ -1,0 +1,1429 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title class="translatable" data-en="Accounts Payable Dashboard - Sakura Company Factory Management">لوحة تحكم الحسابات المستحقة الدفع - Sakura Company Factory Management</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/date-fns/2.29.3/index.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" integrity="sha512-GsLlZN/3F2ErC5ifS5QtgpiJtWd43JWSuIgh7mbzZ8zBps+dvLusV+eNQATqgA/HdeKFVgA5v3S/cIrLF7QnIg==" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Dubai:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        * { font-family: 'Cairo', sans-serif; }
+        .fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .hover-scale { transition: transform 0.2s ease; }
+        .hover-scale:hover { transform: scale(1.02); }
+        .gradient-bg { background: linear-gradient(135deg, #284b44 0%, #956c2a 100%); }
+        .card-shadow { box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1); }
+        .btn-primary { background-color: #284b44; transition: all 0.3s ease; }
+        .btn-primary:hover { background-color: #1a302c; transform: translateY(-2px); box-shadow: 0 10px 25px rgba(40, 75, 68, 0.4); }
+        .btn-export { background-color: #956c2a; color: white; transition: all 0.3s ease; }
+        .btn-export:hover { background-color: #7d5a23; transform: translateY(-2px); box-shadow: 0 4px 15px rgba(149, 108, 42, 0.3); }
+        .btn-export-sm { padding: 0.25rem 0.5rem; font-size: 0.75rem; border-radius: 0.25rem; }
+        .status-overdue { background-color: #fef2f2; color: #dc2626; }
+        .status-due-soon { background-color: #fffbeb; color: #d97706; }
+        .status-paid { background-color: #f0fdf4; color: #16a34a; }
+        .status-unpaid { background-color: #fffbeb; color: #d97706; }
+        .table-row:hover { background-color: #f8fafc; transform: scale(1.01); transition: all 0.2s ease; }
+        .loading { display: inline-block; width: 20px; height: 20px; border: 3px solid #f3f3f3; border-top: 3px solid #284b44; border-radius: 50%; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .chart-container { position: relative; height: 300px; md:height: 400px; width: 100%; }
+        .kpi-card { background: linear-gradient(135deg, #284b44 0%, #4a887b 100%); color: white; border-radius: 15px; padding: 20px; position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        .kpi-card::after { content: ''; position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: radial-gradient(circle at top right, rgba(255,255,255,0.05), transparent 50%); pointer-events: none; }
+        .supplier-status-indicator { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-left: 8px; }
+        .status-critical { background-color: #dc2626; }
+        .status-warning { background-color: #f59e0b; }
+        .status-good { background-color: #10b981; }
+
+        /* Sticky Header & Column for Tables */
+        .table-container {
+            max-height: 70vh;
+            overflow: auto;
+        }
+        .table-container thead th {
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            background-color: #f3f4f6;
+        }
+        .sticky-col {
+            position: sticky;
+            left: 0;
+            background-color: #fdfdfe;
+            z-index: 10;
+        }
+        .table-row:hover .sticky-col {
+            background-color: #f8fafc;
+        }
+        .table-container thead th.sticky-col {
+            z-index: 30;
+            background-color: #f3f4f6;
+        }
+
+        /* Mini Window Styles */
+        .mini-window-backdrop { position: fixed; inset: 0; background-color: rgba(0, 0, 0, 0.7); z-index: 100; display: flex; align-items: center; justify-content: center; }
+        .mini-window-content { background-color: white; border-radius: 1rem; width: 90%; height: 90%; max-width: 1200px; display: flex; flex-direction: column; overflow: hidden; }
+        .mini-window-header { display: flex; justify-content: space-between; align-items: center; padding: 1rem; background-color: #f8f9fa; border-bottom: 1px solid #dee2e6; }
+        .mini-window-body { flex-grow: 1; padding: 0; }
+        .mini-window-body iframe { width: 100%; height: 100%; border: none; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto p-4 sm:p-6">
+        <div class="gradient-bg rounded-2xl p-4 md:p-8 mb-8 text-white card-shadow" style="
+    display: none;" >
+            <div class="flex flex-col md:flex-row items-center justify-between gap-4 md:gap-0">
+                <div class="flex items-center">
+                    <img id="mainLogo" src="https://images.deliveryhero.io/image/hungerstation/restaurant/logo/8556a1377e5154c66adf844d9c5ecb9f.jpg" class="h-16 w-16 mr-4 rounded-full">
+                </div>
+                <div class="text-center flex-grow">
+                    <h1 class="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 translatable" data-en="Suppliers Account Statement" style="font-family: 'Dubai', sans-serif;"><i class="fas fa-chart-line mr-3"></i> <span>كشف حساب الموردين</span></h1>
+                    <p class="text-green-100 text-lg translatable" data-en="Sakura Factory Management">إدارة مصنع ساكورا</p>
+                </div>
+                <div class="text-center md:text-right flex-shrink-0">
+                    <div class="text-xl sm:text-2xl md:text-3xl font-bold" id="currentDate"></div>
+                    <div class="text-green-200 translatable" data-en="Current Date">التاريخ الحالي</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-white rounded-xl p-4 md:p-6 mb-8 card-shadow fade-in" style="
+    display: none;" >
+            <div class="flex flex-col md:flex-row items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-xl md:text-2xl font-bold text-gray-800 mb-2"><i class="fas fa-database text-green-700 mr-2"></i><span class="translatable" data-en="Data Source">مصدر البيانات</span></h2>
+                    <p class="text-gray-600 translatable" data-en="Data is loaded directly from Google Sheets. Click to refresh.">يتم تحميل البيانات مباشرة من Google Sheets. انقر للتحديث.</p>
+                </div>
+                <button id="refreshBtn" class="btn-primary text-white px-6 py-3 rounded-lg cursor-pointer hover-scale w-full md:w-auto"><i class="fas fa-sync-alt mr-2"></i><span class="translatable" data-en="Refresh Data">تحديث البيانات</span></button>
+            </div>
+            <div id="dataStatus" class="mt-4 hidden"></div>
+        </div>
+
+        <div class="advanced-filter fade-in bg-white rounded-xl p-4 md:p-6 mb-8 card-shadow">
+            <h3 class="text-xl font-bold text-gray-800 mb-4"><i class="fas fa-filter mr-2 text-green-700"></i><span class="translatable" data-en="Global Filters">الفلاتر العامة</span></h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div><label class="block text-sm font-medium text-gray-700 mb-2 translatable" data-en="Date Period">فترة التاريخ</label><select id="dateFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg"><option value="all" class="translatable" data-en="All Periods">جميع الفترات</option><option value="30" class="translatable" data-en="Last 30 Days">آخر 30 يوم</option><option value="60" class="translatable" data-en="Last 60 Days">آخر 60 يوم</option><option value="90" class="translatable" data-en="Last 90 Days">آخر 90 يوم</option><option value="180" class="translatable" data-en="Last 6 Months">آخر 6 أشهر</option></select></div>
+                <div><label class="block text-sm font-medium text-gray-700 mb-2 translatable" data-en="Due Status">حالة الاستحقاق</label><select id="statusFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg"><option value="all" class="translatable" data-en="All Statuses">جميع الحالات</option><option value="overdue" class="translatable" data-en="Overdue">متأخر</option><option value="due_soon" class="translatable" data-en="Due Soon">مستحق قريباً</option><option value="paid" class="translatable" data-en="Paid">تم الدفع</option></select></div>
+                <div><label class="block text-sm font-medium text-gray-700 mb-2 translatable" data-en="Amount Range">نطاق المبلغ</label><select id="amountFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg"><option value="all" class="translatable" data-en="All Amounts">جميع المبالغ</option><option value="small" class="translatable" data-en="Less than 1,000 SAR">أقل من 1,000 ريال</option><option value="medium" class="translatable" data-en="1,000 - 10,000 SAR">1,000 - 10,000 ريال</option><option value="large" class="translatable" data-en="More than 10,000 SAR">أكثر من 10,000 ريال</option></select></div>
+                <div><label class="block text-sm font-medium text-gray-700 mb-2 translatable" data-en="Transaction Type">نوع المعاملة</label><select id="typeFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg"><option value="all" class="translatable" data-en="All Types">جميع الأنواع</option><option value="invoice" class="translatable" data-en="Invoice">فاتورة</option><option value="payment" class="translatable" data-en="Payment">سداد</option></select></div>
+            </div>
+        </div>
+
+        <div class="mb-8">
+            <div class="flex flex-wrap justify-center bg-white rounded-xl p-1 sm:p-2 card-shadow gap-2">
+                <button id="dashboardTab" class="tab-button active px-4 py-2 text-sm md:text-base md:px-6 md:py-3 rounded-lg font-medium transition-all"><i class="fas fa-tachometer-alt mr-2"></i><span class="translatable" data-en="Dashboard">لوحة المؤشرات</span></button>
+                <button id="suppliersTab" class="tab-button px-4 py-2 text-sm md:text-base md:px-6 md:py-3 rounded-lg font-medium transition-all"><i class="fas fa-users mr-2"></i><span class="translatable" data-en="Suppliers">الموردين</span></button>
+                <button id="invoicesTab" class="tab-button px-4 py-2 text-sm md:text-base md:px-6 md:py-3 rounded-lg font-medium transition-all"><i class="fas fa-file-invoice-dollar mr-2"></i><span class="translatable" data-en="Invoices">الفواتير</span></button>
+                <button id="purchasesTab" class="tab-button px-4 py-2 text-sm md:text-base md:px-6 md:py-3 rounded-lg font-medium transition-all"><i class="fas fa-shopping-cart mr-2"></i><span class="translatable" data-en="Purchases">المشتريات</span></button>
+                <button id="paymentsTab" class="tab-button px-4 py-2 text-sm md:text-base md:px-6 md:py-3 rounded-lg font-medium transition-all"><i class="fas fa-credit-card mr-2"></i><span class="translatable" data-en="Payments">المدفوعات</span></button>
+                <button id="visualizationTab" class="tab-button px-4 py-2 text-sm md:text-base md:px-6 md:py-3 rounded-lg font-medium transition-all"><i class="fas fa-chart-pie mr-2"></i><span class="translatable" data-en="Visualization">التحليل البصري</span></button>
+                <button id="reportsTab" class="tab-button px-4 py-2 text-sm md:text-base md:px-6 md:py-3 rounded-lg font-medium transition-all"><i class="fas fa-file-alt mr-2"></i><span class="translatable" data-en="Reports">التقارير</span></button>
+            </div>
+        </div>
+
+        <div id="dashboardSection" class="content-section">
+            <div id="statsSection" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"></div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <div class="bg-white p-4 md:p-6 rounded-xl card-shadow">
+                    <div class="flex justify-between items-center mb-4"><h3 class="font-semibold text-gray-700 translatable" data-en="Monthly Cash Flow">التدفق النقدي الشهري</h3><div class="flex gap-1"><button data-chart="cashFlow" data-format="csv" class="btn-export btn-export-sm"><i class="fas fa-file-csv"></i></button><button data-chart="cashFlow" data-format="excel" class="btn-export btn-export-sm"><i class="fas fa-file-excel"></i></button><button data-chart="cashFlow" data-format="pdf" class="btn-export btn-export-sm"><i class="fas fa-file-pdf"></i></button></div></div>
+                    <div class="chart-container"><canvas id="cashFlowChart"></canvas></div>
+                </div>
+                <div class="bg-white p-4 md:p-6 rounded-xl card-shadow">
+                    <div class="flex justify-between items-center mb-4"><h3 class="font-semibold text-gray-700 translatable" data-en="Aging Analysis">تحليل تقادم المستحقات</h3><div class="flex gap-1"><button data-chart="aging" data-format="csv" class="btn-export btn-export-sm"><i class="fas fa-file-csv"></i></button><button data-chart="aging" data-format="excel" class="btn-export btn-export-sm"><i class="fas fa-file-excel"></i></button><button data-chart="aging" data-format="pdf" class="btn-export btn-export-sm"><i class="fas fa-file-pdf"></i></button></div></div>
+                    <div class="chart-container"><canvas id="agingChart"></canvas></div>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+                <div class="bg-white p-4 md:p-6 rounded-xl card-shadow"><h3 class="font-semibold text-gray-700 mb-4 translatable" data-en="Top Suppliers by Risk">أعلى الموردين من حيث المخاطر</h3><div id="riskSuppliers" class="space-y-3"></div></div>
+                <div class="bg-white p-4 md:p-6 rounded-xl card-shadow">
+                    <div class="flex justify-between items-center mb-4"><h3 class="font-semibold text-gray-700 translatable" data-en="Payment Performance">أداء المدفوعات</h3><div class="flex gap-1"><button data-chart="paymentPerformance" data-format="csv" class="btn-export btn-export-sm"><i class="fas fa-file-csv"></i></button><button data-chart="paymentPerformance" data-format="excel" class="btn-export btn-export-sm"><i class="fas fa-file-excel"></i></button><button data-chart="paymentPerformance" data-format="pdf" class="btn-export btn-export-sm"><i class="fas fa-file-pdf"></i></button></div></div>
+                    <div class="chart-container"><canvas id="paymentPerformanceChart"></canvas></div>
+                </div>
+                <div class="bg-white p-4 md:p-6 rounded-xl card-shadow">
+                    <div class="flex justify-between items-center mb-4"><h3 class="font-semibold text-gray-700 translatable" data-en="Supplier Distribution">توزيع الموردين</h3><div class="flex gap-1"><button data-chart="supplierDistribution" data-format="csv" class="btn-export btn-export-sm"><i class="fas fa-file-csv"></i></button><button data-chart="supplierDistribution" data-format="excel" class="btn-export btn-export-sm"><i class="fas fa-file-excel"></i></button><button data-chart="supplierDistribution" data-format="pdf" class="btn-export btn-export-sm"><i class="fas fa-file-pdf"></i></button></div></div>
+                    <div class="chart-container"><canvas id="supplierDistributionChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="searchSection" class="bg-white rounded-xl p-4 md:p-6 mb-8 card-shadow" style="display: none;">
+            <div class="flex flex-col sm:flex-row items-center gap-4">
+                <div class="relative flex-1 w-full"><i class="fas fa-search absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400"></i><input type="text" id="searchInput" class="w-full pr-10 pl-4 py-3 border border-gray-300 rounded-lg"></div>
+                <button id="clearSearch" class="px-4 py-3 bg-gray-500 text-white rounded-lg hover:bg-gray-600 w-full sm:w-auto"><i class="fas fa-times"></i> <span class="translatable" data-en="Clear">مسح</span></button>
+            </div>
+        </div>
+
+        <div id="suppliersSection" class="content-section hidden">
+            <div class="bg-white rounded-xl card-shadow overflow-hidden">
+                <div class="bg-gray-50 px-4 py-4 border-b flex flex-col sm:flex-row justify-between items-center gap-3"><h3 class="text-lg md:text-xl font-bold text-gray-800"><i class="fas fa-list mr-2 text-green-700"></i><span class="translatable" data-en="Suppliers List">قائمة الموردين</span></h3><div class="flex gap-2"><button id="exportSuppliersExcelBtn" class="btn-export px-4 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-file-excel mr-2"></i><span class="translatable" data-en="Excel">Excel</span></button><button id="exportSuppliersCsvBtn" class="btn-export px-4 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-file-csv mr-2"></i><span class="translatable" data-en="CSV">CSV</span></button><button id="exportSuppliersPdfBtn" class="btn-export px-4 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-file-pdf mr-2"></i><span class="translatable" data-en="PDF">PDF</span></button></div></div>
+                <div class="table-container"><table class="w-full text-sm"><thead class="bg-gray-50"><tr><th class="px-2 py-3 text-xs sm:text-sm md:px-6 md:py-4 text-right font-semibold translatable" data-en="No.">الرقم</th><th class="px-2 py-3 text-xs sm:text-sm md:px-6 md:py-4 text-right font-semibold translatable" data-en="Supplier Name">اسم المورد</th><th class="px-2 py-3 text-xs sm:text-sm md:px-6 md:py-4 text-right font-semibold translatable" data-en="Total Purchases">إجمالي المشتريات</th><th class="px-2 py-3 text-xs sm:text-sm md:px-6 md:py-4 text-right font-semibold translatable" data-en="Total Payments">إجمالي المدفوعات</th><th class="px-2 py-3 text-xs sm:text-sm md:px-6 md:py-4 text-right font-semibold translatable" data-en="Outstanding Balance">الرصيد المستحق</th><th class="px-2 py-3 text-xs sm:text-sm md:px-6 md:py-4 text-right font-semibold translatable" data-en="Transaction Count">عدد المعاملات</th><th class="px-2 py-3 text-xs sm:text-sm md:px-6 md:py-4 text-right font-semibold translatable" data-en="Risk Level">مستوى المخاطر</th><th class="px-2 py-3 text-xs sm:text-sm md:px-6 md:py-4 text-right font-semibold translatable" data-en="Actions">الإجراءات</th></tr></thead><tbody id="suppliersTableBody" class="divide-y"></tbody></table></div>
+            </div>
+        </div>
+
+        <div id="invoicesSection" class="content-section hidden">
+            <div class="advanced-filter fade-in bg-white rounded-xl p-4 md:p-6 mb-8 card-shadow">
+                <h3 class="text-xl font-bold text-gray-800 mb-4"><i class="fas fa-filter mr-2 text-green-700"></i><span class="translatable" data-en="Invoice Filters">فلاتر الفواتير</span></h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                    <div><label for="invoiceSupplierFilter" class="block text-sm font-medium text-gray-700 mb-2 translatable" data-en="Supplier">المورد</label><input type="text" id="invoiceSupplierFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg"></div>
+                    <div><label for="invoiceNumberFilter" class="block text-sm font-medium text-gray-700 mb-2 translatable" data-en="Invoice Number">رقم الفاتورة</label><input type="text" id="invoiceNumberFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg"></div>
+                    <div><label for="invoiceDepartmentFilter" class="block text-sm font-medium text-gray-700 mb-2 translatable" data-en="Department">القسم</label><select id="invoiceDepartmentFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg"><option value="all">الكل</option></select></div>
+                    <div><label for="companyFilter" class="block text-sm font-medium text-gray-700 mb-2 translatable" data-en="Company">الشركة</label><select id="companyFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg"><option value="all">الكل</option></select></div>
+                    <div><label for="supplierTypeFilter" class="block text-sm font-medium text-gray-700 mb-2 translatable" data-en="Supplier Type">نوع المورد</label><select id="supplierTypeFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg"><option value="all">الكل</option></select></div>
+                    <div><label for="receiptStatusFilter" class="block text-sm font-medium text-gray-700 mb-2 translatable" data-en="Receipt Status">حالة الاستلام</label><select id="receiptStatusFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg"><option value="all">الكل</option></select></div>
+                    <div><label for="invoiceTypeFilter" class="block text-sm font-medium text-gray-700 mb-2 translatable" data-en="Invoice Type">نوع الفاتورة</label><select id="invoiceTypeFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg"><option value="all">الكل</option></select></div>
+                    <div><label for="invoiceStartDate" class="block text-sm font-medium text-gray-700 mb-2 translatable" data-en="From Date">من تاريخ</label><input type="date" id="invoiceStartDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg"></div>
+                    <div><label for="invoiceEndDate" class="block text-sm font-medium text-gray-700 mb-2 translatable" data-en="To Date">إلى تاريخ</label><input type="date" id="invoiceEndDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg"></div>
+                </div>
+                <button id="invoiceApplyFilters" class="btn-primary text-white px-6 py-3 rounded-lg cursor-pointer hover-scale md:w-auto mt-4"><i class="fas fa-check mr-2"></i><span class="translatable" data-en="Apply">تطبيق</span></button>
+            </div>
+            <div id="invoiceInsightsSection" class="mb-8">
+                <div id="invoiceStatsSection" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"></div>
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div class="bg-white p-4 md:p-6 rounded-xl card-shadow">
+                        <h3 class="font-semibold text-gray-700 mb-4 translatable" data-en="Invoices by Company">الفواتير حسب الشركة</h3>
+                        <div class="chart-container"><canvas id="invoicesByCompanyChart"></canvas></div>
+                    </div>
+                     <div class="bg-white p-4 md:p-6 rounded-xl card-shadow">
+                        <h3 class="font-semibold text-gray-700 mb-4 translatable" data-en="Monthly Invoice Volume">حجم الفواتير الشهري</h3>
+                        <div class="chart-container"><canvas id="invoicesByCategoryChart"></canvas></div>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-xl card-shadow overflow-hidden">
+                <div class="bg-gray-50 px-4 py-4 border-b flex flex-col sm:flex-row justify-between items-center gap-3">
+                    <h3 class="text-lg md:text-xl font-bold text-gray-800"><i class="fas fa-file-invoice-dollar mr-2 text-green-700"></i><span class="translatable" data-en="Invoices List">قائمة الفواتير</span></h3>
+                    <div class="flex gap-2">
+                        <button id="exportInvoicesExcelBtn" class="btn-export px-4 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-file-excel mr-2"></i><span class="translatable" data-en="Excel">Excel</span></button>
+                        <button id="exportInvoicesCsvBtn" class="btn-export px-4 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-file-csv mr-2"></i><span class="translatable" data-en="CSV">CSV</span></button>
+                        <button id="exportInvoicesPdfBtn" class="btn-export px-4 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-file-pdf mr-2"></i><span class="translatable" data-en="PDF">PDF</span></button>
+                    </div>
+                </div>
+                <div id="invoicesStatus" class="mt-4 hidden p-4"></div>
+                <div class="table-container">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="px-2 py-3 text-xs text-center font-semibold whitespace-nowrap sticky-col translatable" data-en="SL No.">رقم</th>
+                                <th class="px-2 py-3 text-xs text-right font-semibold whitespace-nowrap translatable" data-en="Invoice Number">رقم الفاتورة</th>
+                                <th class="px-2 py-3 text-xs text-right font-semibold whitespace-nowrap translatable" data-en="Due Status">حالة الاستحقاق</th>
+                                <th class="px-2 py-3 text-xs text-right font-semibold whitespace-nowrap translatable" data-en="Supplier">المورد</th>
+                                <th class="px-2 py-3 text-xs text-right font-semibold whitespace-nowrap translatable" data-en="Destination">الوجهة</th>
+                                <th class="px-2 py-3 text-xs text-right font-semibold whitespace-nowrap translatable" data-en="Company">الشركة</th>
+                                <th class="px-2 py-3 text-xs text-right font-semibold whitespace-nowrap translatable" data-en="Tax">الضريبة</th>
+                                <th class="px-2 py-3 text-xs text-right font-semibold whitespace-nowrap translatable" data-en="Sub Total">المجموع الفرعي</th>
+                                <th class="px-2 py-3 text-xs text-right font-semibold whitespace-nowrap translatable" data-en="Amount">المبلغ</th>
+                                <th class="px-2 py-3 text-xs text-right font-semibold whitespace-nowrap translatable" data-en="Date">التاريخ</th>
+                                <th class="px-2 py-3 text-xs text-right font-semibold whitespace-nowrap translatable" data-en="Payment Type">طريقة الدفع</th>
+                                <th class="px-2 py-3 text-xs text-right font-semibold whitespace-nowrap translatable" data-en="Invoice Category">فئة الفاتورة</th>
+                                <th class="px-2 py-3 text-xs text-right font-semibold whitespace-nowrap translatable" data-en="Supplier Category">فئة المورد</th>
+                                <th class="px-2 py-3 text-xs text-right font-semibold whitespace-nowrap translatable" data-en="Due Date">تاريخ الاستحقاق</th>
+                                <th class="px-2 py-3 text-xs text-right font-semibold whitespace-nowrap translatable" data-en="Agreement Duration">مدة الاتفاقية</th>
+                                <th class="px-2 py-3 text-xs text-right font-semibold whitespace-nowrap translatable" data-en="Physical PO Ref">مرجع طلب الشراء الفعلي</th>
+                                <th class="px-2 py-3 text-xs text-right font-semibold whitespace-nowrap translatable" data-en="Foodics PO Ref">مرجع طلب شراء فودكس</th>
+                                <th class="px-2 py-3 text-xs text-right font-semibold whitespace-nowrap translatable" data-en="ATM Card">بطاقة الصراف</th>
+                            </tr>
+                        </thead>
+                        <tbody id="invoicesTableBody" class="divide-y"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="purchasesSection" class="content-section hidden">
+            <div id="purchaseStatsSection" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8"></div>
+            <div class="advanced-filter fade-in bg-white rounded-xl p-4 md:p-6 mb-8 card-shadow">
+                <h3 class="text-xl font-bold text-gray-800 mb-4"><i class="fas fa-filter mr-2 text-green-700"></i><span class="translatable" data-en="Purchase Filters">فلاتر المشتريات</span></h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                    <div><label for="purchaseStartDate" class="block text-sm font-medium text-gray-700 mb-2 translatable" data-en="From Date">من تاريخ</label><input type="date" id="purchaseStartDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg"></div>
+                    <div><label for="purchaseEndDate" class="block text-sm font-medium text-gray-700 mb-2 translatable" data-en="To Date">إلى تاريخ</label><input type="date" id="purchaseEndDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg"></div>
+                    <div><label for="purchaseSupplierFilter" class="block text-sm font-medium text-gray-700 mb-2 translatable" data-en="Supplier">المورد</label><input type="text" id="purchaseSupplierFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg"></div>
+                    <div><label for="purchaseItemFilter" class="block text-sm font-medium text-gray-700 mb-2 translatable" data-en="Item Name">اسم العنصر</label><input type="text" id="purchaseItemFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg"></div>
+                    <div><label for="purchaseCategoryFilter" class="block text-sm font-medium text-gray-700 mb-2 translatable" data-en="Category">الفئة</label><select id="purchaseCategoryFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg"><option value="all">الكل</option></select></div>
+                    <div>
+                        <label for="purchaseTypeFilter" class="block text-sm font-medium text-gray-700 mb-2 translatable" data-en="Purchase Type">نوع الشراء</label>
+                        <select id="purchaseTypeFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                            <option value="all" class="translatable" data-en="All">الكل</option>
+                            <option value="supplier" class="translatable" data-en="By Supplier (Cash/Credit)">شراء من المورد (نقدي/آجل)</option>
+                        </select>
+                    </div>
+                </div>
+                <button id="purchaseApplyFilters" class="btn-primary text-white px-6 py-3 rounded-lg cursor-pointer hover-scale md:w-auto mt-4"><i class="fas fa-check mr-2"></i><span class="translatable" data-en="Apply">تطبيق</span></button>
+            </div>
+            <div class="bg-white rounded-xl card-shadow overflow-hidden">
+                <div class="bg-gray-50 px-4 py-4 border-b flex flex-col sm:flex-row justify-between items-center gap-3">
+                    <h3 class="text-lg md:text-xl font-bold text-gray-800"><i class="fas fa-boxes mr-2 text-green-700"></i><span class="translatable" data-en="Purchases List">قائمة المشتريات</span></h3>
+                    <div id="purchasesStatus" class="hidden p-4"></div>
+                    <div class="flex gap-2">
+                        <button id="exportPurchasesExcelBtn" class="btn-export px-4 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-file-excel mr-2"></i><span class="translatable" data-en="Excel">Excel</span></button>
+                        <button id="exportPurchasesCsvBtn" class="btn-export px-4 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-file-csv mr-2"></i><span class="translatable" data-en="CSV">CSV</span></button>
+                    </div>
+                </div>
+                <div class="table-container">
+                    <table class="w-full text-sm">
+                        <thead class="bg-gray-100">
+                            <tr>
+                                <th class="px-2 py-3 text-xs text-center font-semibold whitespace-nowrap sticky-col translatable" data-en="SL No.">رقم</th>
+                                <th class="px-2 py-3 text-xs text-right font-semibold whitespace-nowrap translatable" data-en="Name">الاسم</th>
+                                <th class="px-2 py-3 text-xs text-right font-semibold whitespace-nowrap translatable" data-en="Code">الكود</th>
+                                <th class="px-2 py-3 text-xs text-right font-semibold whitespace-nowrap translatable" data-en="Unit">الوحدة</th>
+                                <th class="px-2 py-3 text-xs text-right font-semibold whitespace-nowrap translatable" data-en="Item Type">نوع الصنف</th>
+                                <th class="px-2 py-3 text-xs text-right font-semibold whitespace-nowrap translatable" data-en="Quantity">الكمية</th>
+                                <th class="px-2 py-3 text-xs text-right font-semibold whitespace-nowrap translatable" data-en="Unit Cost">تكلفة الوحدة</th>
+                                <th class="px-2 py-3 text-xs text-right font-semibold whitespace-nowrap translatable" data-en="Additional Cost">تكلفة إضافية</th>
+                                <th class="px-2 py-3 text-xs text-right font-semibold whitespace-nowrap translatable" data-en="Total Before Tax">الإجمالي قبل الضريبة</th>
+                                <th class="px-2 py-3 text-xs text-right font-semibold whitespace-nowrap translatable" data-en="Tax">الضريبة</th>
+                                <th class="px-2 py-3 text-xs text-right font-semibold whitespace-nowrap translatable" data-en="Total After Tax">الإجمالي بعد الضريبة</th>
+                            </tr>
+                        </thead>
+                        <tbody id="purchasesTableBody" class="divide-y"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="paymentsSection" class="content-section hidden">
+            <div class="advanced-filter fade-in bg-white rounded-xl p-4 md:p-6 mb-8 card-shadow">
+                <h3 class="text-xl font-bold text-gray-800 mb-4"><i class="fas fa-filter mr-2 text-green-700"></i><span class="translatable" data-en="Payments Filters">فلاتر المدفوعات</span></h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div><label for="paymentsStartDate" class="block text-sm font-medium text-gray-700 mb-2 translatable" data-en="From Date">من تاريخ</label><input type="date" id="paymentsStartDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg"></div>
+                    <div><label for="paymentsEndDate" class="block text-sm font-medium text-gray-700 mb-2 translatable" data-en="To Date">إلى تاريخ</label><input type="date" id="paymentsEndDate" class="w-full px-3 py-2 border border-gray-300 rounded-lg"></div>
+                    <div><label for="paymentsSupplierFilter" class="block text-sm font-medium text-gray-700 mb-2 translatable" data-en="Supplier">المورد</label><input type="text" id="paymentsSupplierFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg"></div>
+                    <div>
+                        <label for="paymentMethodFilter" class="block text-sm font-medium text-gray-700 mb-2 translatable" data-en="Payment Method">طريقة الدفع</label>
+                        <select id="paymentMethodFilter" class="w-full px-3 py-2 border border-gray-300 rounded-lg">
+                            <option value="all" class="translatable" data-en="All Methods">جميع الطرق</option>
+                            <option value="bankTransfer" class="translatable" data-en="Bank Transfer">تحويل بنكي</option>
+                            <option value="atmSakuraNL" class="translatable" data-en="ATM Card (Sakura Non-Logistics)">بطاقة صراف (ساكورا غير لوجستي)</option>
+                            <option value="atmSakuraL" class="translatable" data-en="ATM Card (Sakura Logistics)">بطاقة صراف (ساكورا لوجستي)</option>
+                            <option value="atmSpaceLessNL" class="translatable" data-en="ATM Card (Space Less Non-Logistics)">بطاقة صراف (سبيس لس غير لوجستي)</option>
+                            <option value="cashWithoutCard" class="translatable" data-en="Cash without Card">نقد بدون بطاقة</option>
+                        </select>
+                    </div>
+                </div>
+                <button id="paymentsApplyFilter" class="btn-primary text-white px-6 py-3 rounded-lg cursor-pointer hover-scale w-full md:w-auto mt-4"><i class="fas fa-filter mr-2"></i><span class="translatable" data-en="Apply">تطبيق</span></button>
+            </div>
+            <div class="bg-white rounded-xl card-shadow overflow-hidden">
+                <div class="bg-gray-50 px-4 py-4 border-b flex flex-col sm:flex-row justify-between items-center gap-3"><h3 class="text-lg md:text-xl font-bold text-gray-800"><i class="fas fa-credit-card mr-2 text-green-700"></i><span class="translatable" data-en="Payments List">قائمة المدفوعات</span></h3><div class="flex gap-2"><button id="exportPaymentsExcelBtn" class="btn-export px-4 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-file-excel mr-2"></i><span class="translatable" data-en="Excel">Excel</span></button><button id="exportPaymentsCsvBtn" class="btn-export px-4 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-file-csv mr-2"></i><span class="translatable" data-en="CSV">CSV</span></button><button id="exportPaymentsPdfBtn" class="btn-export px-4 py-2 rounded-lg text-sm font-semibold"><i class="fas fa-file-pdf mr-2"></i><span class="translatable" data-en="PDF">PDF</span></button></div></div>
+                <div class="table-container"><table class="w-full text-sm"><thead class="bg-gray-50"><tr><th class="px-2 py-3 text-xs sm:text-sm md:px-6 md:py-4 text-right font-semibold translatable" data-en="Date">التاريخ</th><th class="px-2 py-3 text-xs sm:text-sm md:px-6 md:py-4 text-right font-semibold translatable" data-en="Supplier">المورد</th><th class="px-2 py-3 text-xs sm:text-sm md:px-6 md:py-4 text-right font-semibold translatable" data-en="Transaction ID">رقم المعاملة</th><th class="px-2 py-3 text-xs sm:text-sm md:px-6 md:py-4 text-right font-semibold translatable" data-en="Payment Amount">مبلغ الدفع</th><th class="px-2 py-3 text-xs sm:text-sm md:px-6 md:py-4 text-right font-semibold translatable" data-en="Status">الحالة</th><th class="px-2 py-3 text-xs sm:text-sm md:px-6 md:py-4 text-right font-semibold translatable" data-en="Payment Method">طريقة الدفع</th></tr></thead><tbody id="paymentsTableBody" class="divide-y"></tbody></table></div>
+            </div>
+        </div>
+
+        <div id="visualizationSection" class="content-section hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <div class="bg-white p-4 md:p-6 rounded-xl card-shadow">
+                    <div class="flex justify-between items-center mb-4"><h3 class="font-semibold text-gray-700 translatable" data-en="Top 10 Suppliers by Outstanding Balance">أعلى 10 موردين حسب الرصيد المستحق</h3><div class="flex gap-1"><button data-chart="topSuppliers" data-format="csv" class="btn-export btn-export-sm"><i class="fas fa-file-csv"></i></button><button data-chart="topSuppliers" data-format="excel" class="btn-export btn-export-sm"><i class="fas fa-file-excel"></i></button><button data-chart="topSuppliers" data-format="pdf" class="btn-export btn-export-sm"><i class="fas fa-file-pdf"></i></button></div></div>
+                    <div class="chart-container"><canvas id="topSuppliersChart"></canvas></div>
+                </div>
+                <div class="bg-white p-4 md:p-6 rounded-xl card-shadow">
+                    <div class="flex justify-between items-center mb-4"><h3 class="font-semibold text-gray-700 translatable" data-en="Monthly Payments Trend">اتجاه المدفوعات الشهرية</h3><div class="flex gap-1"><button data-chart="timeline" data-format="csv" class="btn-export btn-export-sm"><i class="fas fa-file-csv"></i></button><button data-chart="timeline" data-format="excel" class="btn-export btn-export-sm"><i class="fas fa-file-excel"></i></button><button data-chart="timeline" data-format="pdf" class="btn-export btn-export-sm"><i class="fas fa-file-pdf"></i></button></div></div>
+                    <div class="chart-container"><canvas id="timelineChart"></canvas></div>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="bg-white p-4 md:p-6 rounded-xl card-shadow">
+                    <div class="flex justify-between items-center mb-4"><h3 class="font-semibold text-gray-700 translatable" data-en="Invoice Status">حالة الفواتير</h3><div class="flex gap-1"><button data-chart="invoiceStatus" data-format="csv" class="btn-export btn-export-sm"><i class="fas fa-file-csv"></i></button><button data-chart="invoiceStatus" data-format="excel" class="btn-export btn-export-sm"><i class="fas fa-file-excel"></i></button><button data-chart="invoiceStatus" data-format="pdf" class="btn-export btn-export-sm"><i class="fas fa-file-pdf"></i></button></div></div>
+                    <div class="chart-container"><canvas id="invoiceStatusChart"></canvas></div>
+                </div>
+                <div class="bg-white p-4 md:p-6 rounded-xl card-shadow">
+                    <div class="flex justify-between items-center mb-4"><h3 class="font-semibold text-gray-700 translatable" data-en="Amount Distribution">التوزيع حسب المبلغ</h3><div class="flex gap-1"><button data-chart="amountDistribution" data-format="csv" class="btn-export btn-export-sm"><i class="fas fa-file-csv"></i></button><button data-chart="amountDistribution" data-format="excel" class="btn-export btn-export-sm"><i class="fas fa-file-excel"></i></button><button data-chart="amountDistribution" data-format="pdf" class="btn-export btn-export-sm"><i class="fas fa-file-pdf"></i></button></div></div>
+                    <div class="chart-container"><canvas id="amountDistributionChart"></canvas></div>
+                </div>
+                <div class="bg-white p-4 md:p-6 rounded-xl card-shadow">
+                    <div class="flex justify-between items-center mb-4"><h3 class="font-semibold text-gray-700 translatable" data-en="Average Payment Days">متوسط أيام الدفع</h3><div class="flex gap-1"><button data-chart="paymentDays" data-format="csv" class="btn-export btn-export-sm"><i class="fas fa-file-csv"></i></button><button data-chart="paymentDays" data-format="excel" class="btn-export btn-export-sm"><i class="fas fa-file-excel"></i></button><button data-chart="paymentDays" data-format="pdf" class="btn-export btn-export-sm"><i class="fas fa-file-pdf"></i></button></div></div>
+                    <div class="chart-container"><canvas id="paymentDaysChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="reportsSection" class="content-section hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <div class="bg-white p-4 md:p-6 rounded-xl card-shadow"><h3 class="text-xl font-bold text-gray-800 mb-4 translatable" data-en="Financial Reports">التقارير المالية</h3><div id="financialReportsContainer" class="space-y-4"><button data-report="monthlyDues" class="w-full text-right px-4 py-3 border rounded-lg hover:bg-gray-50"><i class="fas fa-file-excel mr-2 text-green-500"></i><span class="translatable" data-en="Dues Report (Unpaid Invoices)">تقرير الاستحقاقات (الفواتير غير المدفوعة)</span></button><button data-report="supplierPerformance" class="w-full text-right px-4 py-3 border rounded-lg hover:bg-gray-50"><i class="fas fa-file-excel mr-2 text-green-500"></i><span class="translatable" data-en="Suppliers Summary Report">تقرير ملخص الموردين</span></button><button data-report="cashflow" class="w-full text-right px-4 py-3 border rounded-lg hover:bg-gray-50"><i class="fas fa-file-excel mr-2 text-green-500"></i><span class="translatable" data-en="Cash Flow Report">تقرير التدفق النقدي</span></button></div></div>
+                <div class="bg-white p-4 md:p-6 rounded-xl card-shadow"><h3 class="text-xl font-bold text-gray-800 mb-4 translatable" data-en="System Settings">إعدادات النظام</h3><div class="space-y-4"><div><label class="block text-sm font-medium text-gray-700 mb-2 translatable" data-en="Due Alerts">تنبيهات الاستحقاق</label><select class="w-full px-3 py-2 border rounded-lg"><option class="translatable" data-en="30 days before due">30 يوم قبل الاستحقاق</option><option class="translatable" data-en="15 days before due">15 يوم قبل الاستحقاق</option><option class="translatable" data-en="7 days before due">7 أيام قبل الاستحقاق</option></select></div><div><label class="block text-sm font-medium text-gray-700 mb-2 translatable" data-en="Display Currency">عملة العرض</label><select class="w-full px-3 py-2 border rounded-lg"><option class="translatable" data-en="Saudi Riyal (SAR)">الريال السعودي (SAR)</option><option class="translatable" data-en="US Dollar (USD)">الدولار الأمريكي (USD)</option><option class="translatable" data-en="Euro (EUR)">اليورو (EUR)</option></select></div></div></div>
+            </div>
+        </div>
+
+        <div id="supplierModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+            <div class="flex items-center justify-center min-h-screen p-4">
+                <div class="bg-white rounded-2xl max-w-6xl w-full max-h-[90vh] overflow-y-auto">
+                    <div class="bg-gradient-to-r from-green-800 to-green-600 p-4 md:p-6 text-white sticky top-0 z-10">
+                        <div class="flex items-center justify-between mb-4"><h2 class="text-xl md:text-2xl font-bold translatable" id="modalSupplierName" data-en="Supplier Details">تفاصيل المورد</h2><button id="closeModal" class="text-white hover:text-gray-200"><i class="fas fa-times text-xl"></i></button></div>
+                        <div class="bg-black bg-opacity-20 p-4 rounded-lg">
+                            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+                                <div><label for="modalStartDate" class="block text-sm font-medium text-green-100 mb-1 translatable" data-en="From Date">من تاريخ</label><input type="date" id="modalStartDate" class="w-full px-3 py-2 border rounded-lg text-gray-800"></div>
+                                <div><label for="modalEndDate" class="block text-sm font-medium text-green-100 mb-1 translatable" data-en="To Date">إلى تاريخ</label><input type="date" id="modalEndDate" class="w-full px-3 py-2 border rounded-lg text-gray-800"></div>
+                                <button id="modalApplyFilter" class="bg-white text-green-800 font-bold px-4 py-2 rounded-lg hover:bg-green-100 h-10"><i class="fas fa-filter mr-2"></i><span class="translatable" data-en="Apply">تطبيق</span></button>
+                                <div class="flex gap-2 justify-end">
+                                    <button id="exportModalExcelBtn" title="تصدير إلى Excel" class="btn-export px-3 py-2 rounded-lg text-sm bg-green-500 hover:bg-green-600 h-10"><i class="fas fa-file-excel"></i></button>
+                                    <button id="exportModalCsvBtn" title="تصدير إلى CSV" class="btn-export px-3 py-2 rounded-lg text-sm bg-green-500 hover:bg-green-600 h-10"><i class="fas fa-file-csv"></i></button>
+                                    <button id="exportModalPdfBtn" title="تصدير إلى PDF" class="btn-export px-3 py-2 rounded-lg text-sm bg-green-500 hover:bg-green-600 h-10"><i class="fas fa-file-pdf"></i></button>
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-4 mt-4 text-center">
+                                <div class="bg-green-900 bg-opacity-50 p-3 rounded-lg"><h4 class="text-sm text-green-200 translatable" data-en="Opening Balance">الرصيد الافتتاحي</h4><p class="text-lg font-bold" id="modalOpeningBalance">0.00 ر.س.</p></div>
+                                <div class="bg-green-900 bg-opacity-50 p-3 rounded-lg"><h4 class="text-sm text-green-200 translatable" data-en="Closing Balance">الرصيد الختامي</h4><p class="text-lg font-bold" id="modalClosingBalance">0.00 ر.с.</p></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="p-4 md:p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-6" id="modalStats"></div>
+                        <div class="overflow-x-auto"><table class="w-full"><thead class="bg-gray-50"><tr><th class="px-2 py-2 text-xs sm:text-sm md:px-4 md:py-3 text-right font-semibold translatable" data-en="Date">التاريخ</th><th class="px-2 py-2 text-xs sm:text-sm md:px-4 md:py-3 text-right font-semibold translatable" data-en="Description">الوصف</th><th class="px-2 py-2 text-xs sm:text-sm md:px-4 md:py-3 text-right font-semibold translatable" data-en="Transaction ID">رقم المعاملة</th><th class="px-2 py-2 text-xs sm:text-sm md:px-4 md:py-3 text-right font-semibold translatable" data-en="Amount">المبلغ</th><th class="px-2 py-2 text-xs sm:text-sm md:px-4 md:py-3 text-right font-semibold translatable" data-en="Status">الحالة</th><th class="px-2 py-2 text-xs sm:text-sm md:px-4 md:py-3 text-right font-semibold translatable" data-en="Cumulative Balance">الرصيد المتراكم</th></tr></thead><tbody id="modalTransactionsBody" class="divide-y"></tbody></table></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="miniWindow" class="mini-window-backdrop hidden">
+            <div class="mini-window-content">
+                <div class="mini-window-header">
+                    <h3 class="text-lg font-bold text-gray-800 translatable" data-en="View Document">عرض المستند</h3>
+                    <button onclick="closeMiniWindow()" class="text-gray-600 hover:text-red-500 text-2xl font-bold">&times;</button>
+                </div>
+                <div class="mini-window-body">
+                    <iframe id="miniWindowFrame" src=""></iframe>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-12 text-center text-gray-500 text-sm">
+            <p class="translatable" data-en="Sakura Factory Management System © 2025">نظام إدارة مصنع ساكورا © 2025</p>
+        </div>
+    </div>
+
+    <script>
+        // --- START OF SCRIPT ---
+        window.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'INIT_DATA' && event.data.payload) {
+        const data = event.data.payload;
+
+        // Assuming payload contains all the data needed for this dashboard
+        allData = data.allData || [];
+        allInvoicesData = data.allInvoicesData || [];
+        allPurchasesData = data.allPurchasesData || [];
+
+        initializeAllCharts();
+        enrichAndRenderInvoices();
+        populatePurchaseTypeFilter();
+        applyFiltersAndRedraw();
+    }
+    
+    // Handle language changes from parent portal
+    if (event.data && event.data.type === 'SET_LANGUAGE') {
+        switchLanguage(event.data.lang);
+    }
+});
+        let allData = [], allInvoicesData = [], allPurchasesData = [], currentFilteredSummaries = [], currentFilteredTransactions = [], currentFilteredInvoices = [], currentFilteredPurchases = [];
+        let charts = {};
+        const SPREADSHEET_ID = '1PmGAHvrOM1wnts4Xnp1Wmivrvqk8VnlWqOyp00mCfxw';
+        const API_KEY = 'AIzaSyCnoLcmC_MpuI12NUK-E2l0B9KbsdC42C4'; // Replace with your actual API key
+        const sakuraLogoUrl = "https://images.deliveryhero.io/image/hungerstation/restaurant/logo/8556a1377e5154c66adf844d9c5ecb9f.jpg";
+        let currentLang = localStorage.getItem('portalLang') || 'ar';
+
+        const i18n = {
+            ar: {
+                // General
+                loadingData: 'جاري تحميل أحدث البيانات...', dataUpdated: 'تم تحديث البيانات! تم تحميل', transactions: 'معاملة.', dataFailed: 'فشل تحميل البيانات:', noResults: 'لا توجد نتائج', unspecified: 'غير محدد', beginning: 'البداية', end: 'النهاية', all: 'الكل',
+                // Tabs
+                dashboard: 'لوحة المؤشرات', suppliers: 'الموردين', invoices: 'الفواتير', purchases: 'المشتريات', payments: 'المدفوعات', visualization: 'التحليل البصري', reports: 'التقارير',
+                // Statuses
+                overdue: 'متأخر', dueSoon: 'مستحق قريباً', paid: 'تم الدفع', unpaid: 'غير مدفوع', high: 'عالي', medium: 'متوسط', low: 'منخفض',
+                // Risk & Performance
+                risk: 'المخاطر', onTime: 'في الوقت المحدد', late1_30: 'متأخر 1-30 يوم', late31_60: 'متأخر 31-60 يوم', late60: 'متأخر +60 يوم',
+                // Aging Buckets
+                '1-30 days': '1-30 يوم', '31-60 days': '31-60 يوم', '61-90 days': '61-90 يوم', '+90 days': '+90 يوم',
+                // Stats Cards
+                totalDues: 'إجمالي المستحقات', totalSuppliers: 'إجمالي الموردين', overdues: 'المتأخرات', totalTransactions: 'إجمالي المعاملات',
+                totalInvoiceAmount: 'إجمالي مبلغ الفواتير', avgInvoiceAmount: 'متوسط مبلغ الفاتورة', unpaidInvoices: 'فواتير غير مدفوعة', totalPaidAmount: 'إجمالي المدفوع',
+                totalPurchaseAmount: 'إجمالي مبلغ الشراء', totalItemsPurchased: 'إجمالي الأصناف المشتراة', uniqueItems: 'الأصناف الفريدة', totalPurchaseRecords: 'إجمالي سجلات الشراء',
+                // Placeholders & Buttons
+                searchSupplierPlaceholder: 'ابحث عن مورد...', searchForSupplier: 'ابحث عن مورد...', searchForItem: 'ابحث عن اسم العنصر...', apply: 'تطبيق', viewDetails: 'عرض التفاصيل',
+                // Tables
+                supplierName: 'اسم المورد', totalPurchases: 'إجمالي المشتريات', totalPayments: 'إجمالي المدفوعات', outstandingBalance: 'الرصيد المستحق', transactionCount: 'عدد المعاملات', riskLevel: 'مستوى المخاطر', date: 'التاريخ', description: 'الوصف', transactionId: 'رقم المعاملة', amount: 'المبلغ', status: 'الحالة', cumulativeBalance: 'الرصيد المتراكم', paymentAmount: 'مبلغ الدفع', paymentMethod: 'طريقة الدفع', dueAmount: 'المبلغ المستحق', dueDate: 'تاريخ الاستحقاق',
+                Name: 'الاسم', Code: 'الكود', Unit: 'الوحدة', 'Item Type': 'نوع الصنف', Quantity: 'الكمية', 'Unit Cost': 'تكلفة الوحدة', 'Additional Cost': 'تكلفة إضافية', 'Total Before Tax': 'الإجمالي قبل الضريبة', Tax: 'الضريبة', 'Total After Tax': 'الإجمالي بعد الضريبة',
+                // New Filter
+                'Purchase Type': 'نوع الشراء', 'By Supplier (Cash/Credit)': 'شراء من المورد (نقدي/آجل)',
+                // Charts
+                monthlyCashFlow: 'التدفق النقدي الشهري', agingAnalysis: 'تحليل تقادم المستحقات', paymentPerformance: 'أداء المدفوعات', supplierDistribution: 'توزيع الموردين', top10SuppliersByOutstanding: 'أعلى 10 موردين حسب الرصيد المستحق', monthlyPaymentsTrend: 'اتجاه المدفوعات الشهرية', invoiceStatus: 'حالة الفواتير', amountDistribution: 'التوزيع حسب المبلغ', averagePaymentDays: 'متوسط أيام الدفع', invoicesByCompany: 'الفواتير حسب الشركة', monthlyInvoiceVolume: 'حجم الفواتير الشهري', invoiceCount: 'عدد الفواتير', totalAmount: 'المبلغ الإجمالي',
+                // Amount Ranges
+                smallAmount: 'أقل من 1,000 ريال', mediumAmount: '1,000 - 10,000 ريال', largeAmount: 'أكثر من 10,000 ريال',
+                // Modal & Reports
+                accountStatementFor: 'كشف حساب المورد: ', periodFrom: 'الفترة من: ', periodTo: ' إلى: ', openingBalance: 'الرصيد الافتتاحي', closingBalance: 'الرصيد الختامي', reportDate: 'تاريخ التقرير: ', noHighRisk: 'لا يوجد موردون بمخاطر عالية.', noPayments: 'لا توجد مدفوعات', noTransactions: 'لا توجد حركات', noInvoices: 'لا توجد فواتير لعرضها.',
+                // Payment Methods
+                allMethods: 'جميع الطرق', bankTransfer: 'تحويل بنكي', atmSakuraNL: 'بطاقة صراف (ساكورا غير لوجستي)', atmSakuraL: 'بطاقة صراف (ساكورا لوجستي)', atmSpaceLessNL: 'بطاقة صراف (سبيس لس غير لوجستي)', cashWithoutCard: 'نقد بدون بطاقة',
+                // Transaction Types
+                invoiceShort: 'فاتورة', paymentShort: 'سداد',
+                // Export Filenames
+                suppliers_summary_report: 'تقرير_ملخص_الموردين', dues_report: 'تقرير_الاستحقاقات', cash_flow_report: 'تقرير_التدفق_النقدي',
+                // Misc
+                category: 'الفئة', count: 'العدد', range: 'النطاق', month: 'الشهر', supplier: 'المورد',
+            },
+            en: {
+                // General
+                loadingData: 'Loading latest data...', dataUpdated: 'Data updated! Loaded', transactions: 'transactions.', dataFailed: 'Failed to load data:', noResults: 'No results found', unspecified: 'Unspecified', beginning: 'Beginning', end: 'End', all: 'All',
+                // Tabs
+                dashboard: 'Dashboard', suppliers: 'Suppliers', invoices: 'Invoices', purchases: 'Purchases', payments: 'Payments', visualization: 'Visualization', reports: 'Reports',
+                // Statuses
+                overdue: 'Overdue', dueSoon: 'Due Soon', paid: 'Paid', unpaid: 'Unpaid', high: 'High', medium: 'Medium', low: 'Low',
+                // Risk & Performance
+                risk: 'Risk', onTime: 'On Time', late1_30: 'Late 1-30 Days', late31_60: 'Late 31-60 Days', late60: 'Late 60+ Days',
+                // Aging Buckets
+                '1-30 days': '1-30 Days', '31-60 days': '31-60 Days', '61-90 days': '61-90 Days', '+90 days': '90+ Days',
+                // Stats Cards
+                totalDues: 'Total Dues', totalSuppliers: 'Total Suppliers', overdues: 'Overdues', totalTransactions: 'Total Transactions',
+                totalInvoiceAmount: 'Total Invoice Amount', avgInvoiceAmount: 'Avg. Invoice Amount', unpaidInvoices: 'Unpaid Invoices', totalPaidAmount: 'Total Paid Amount',
+                totalPurchaseAmount: 'Total Purchase Amount', totalItemsPurchased: 'Total Items Purchased', uniqueItems: 'Unique Items', totalPurchaseRecords: 'Total Purchase Records',
+                // Placeholders & Buttons
+                searchSupplierPlaceholder: 'Search for a supplier...', searchForSupplier: 'Search for supplier...', searchForItem: 'Search for item name...', apply: 'Apply', viewDetails: 'View Details',
+                // Tables
+                supplierName: 'Supplier Name', totalPurchases: 'Total Purchases', totalPayments: 'Total Payments', outstandingBalance: 'Outstanding Balance', transactionCount: 'Transaction Count', riskLevel: 'Risk Level', date: 'Date', description: 'Description', transactionId: 'Transaction ID', amount: 'Amount', status: 'Status', cumulativeBalance: 'Cumulative Balance', paymentAmount: 'Payment Amount', paymentMethod: 'Payment Method', dueAmount: 'Due Amount', dueDate: 'Due Date',
+                Name: 'Name', Code: 'Code', Unit: 'Unit', 'Item Type': 'Item Type', Quantity: 'Quantity', 'Unit Cost': 'Unit Cost', 'Additional Cost': 'Additional Cost', 'Total Before Tax': 'Total Before Tax', Tax: 'Tax', 'Total After Tax': 'Total After Tax',
+                 // New Filter
+                'Purchase Type': 'Purchase Type', 'By Supplier (Cash/Credit)': 'By Supplier (Cash/Credit)',
+                // Charts
+                monthlyCashFlow: 'Monthly Cash Flow', agingAnalysis: 'Aging Analysis', paymentPerformance: 'Payment Performance', supplierDistribution: 'Supplier Distribution', top10SuppliersByOutstanding: 'Top 10 Suppliers by Outstanding Balance', monthlyPaymentsTrend: 'Monthly Payments Trend', invoiceStatus: 'Invoice Status', amountDistribution: 'Amount Distribution', averagePaymentDays: 'Average Payment Days', invoicesByCompany: 'Invoices by Company', monthlyInvoiceVolume: 'Monthly Invoice Volume', invoiceCount: 'Invoice Count', totalAmount: 'Total Amount',
+                // Amount Ranges
+                smallAmount: 'Less than 1,000 SAR', mediumAmount: '1,000 - 10,000 SAR', largeAmount: 'More than 10,000 SAR',
+                // Modal & Reports
+                accountStatementFor: 'Account Statement for Supplier: ', periodFrom: 'Period from: ', periodTo: ' to: ', openingBalance: 'Opening Balance', closingBalance: 'Closing Balance', reportDate: 'Report Date: ', noHighRisk: 'No high-risk suppliers found.', noPayments: 'No payments to display.', noTransactions: 'No transactions found for this period.', noInvoices: 'No invoices to display.',
+                // Payment Methods
+                allMethods: 'All Methods', bankTransfer: 'Bank Transfer', atmSakuraNL: 'ATM Card (Sakura Non-Logistics)', atmSakuraL: 'ATM Card (Sakura Logistics)', atmSpaceLessNL: 'ATM Card (Space Less Non-Logistics)', cashWithoutCard: 'Cash without Card',
+                // Transaction Types
+                invoiceShort: 'Invoice', paymentShort: 'Payment',
+                // Export Filenames
+                suppliers_summary_report: 'Suppliers_Summary_Report', dues_report: 'Dues_Report', cash_flow_report: 'Cash_Flow_Report',
+                // Misc
+                category: 'Category', count: 'Count', range: 'Range', month: 'Month', supplier: 'Supplier',
+            }
+        };
+
+        function translate(key) { return i18n[currentLang][key] || key; }
+
+        function parseDate(s) {
+            try {
+                if (!s || String(s).toLowerCase().includes("paid") || String(s).toLowerCase().includes("تم السداد")) return null;
+                const d = new Date(s);
+                return isNaN(d.getTime()) ? null : d;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        function translateStatus(status) {
+            if (!status) return '';
+            if (currentLang === 'ar') return status;
+            if (status.includes('متأخر')) { const days = status.match(/(\d+)/)?.[1] || '0'; return `Overdue by ${days} days`; }
+            if (status.includes('مستحق')) { const days = status.match(/(\d+)/)?.[1] || '0'; return `Due in ${days} days`; }
+            if (status.includes('تم السداد') || status.includes('تم الدفع')) return 'Paid';
+            return status;
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.translatable').forEach(el => el.dataset.ar = el.innerText.trim());
+            initializePage();
+            setupEventListeners();
+            switchLanguage(currentLang, true); 
+        });
+
+        function switchLanguage(lang, isInitial = false) {
+            currentLang = lang;
+            if (!isInitial) localStorage.setItem('portalLang', lang);
+
+            document.documentElement.lang = lang;
+            document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+
+            document.querySelectorAll('.translatable').forEach(el => {
+                el.innerText = el.dataset[lang] || el.dataset.en || el.innerText;
+            });
+            
+            document.getElementById('searchInput').placeholder = translate('searchSupplierPlaceholder');
+            document.getElementById('paymentsSupplierFilter').placeholder = translate('searchForSupplier');
+            document.getElementById('invoiceSupplierFilter').placeholder = translate('searchForSupplier');
+            document.getElementById('purchaseSupplierFilter').placeholder = translate('searchForSupplier');
+            document.getElementById('purchaseItemFilter').placeholder = translate('searchForItem');
+
+            document.getElementById('currentDate').textContent = new Date().toLocaleDateString(lang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US', { calendar: 'gregory', year: 'numeric', month: 'long', day: 'numeric' });
+            
+            if (!isInitial) {
+                 populatePurchaseTypeFilter();
+                 applyFiltersAndRedraw();
+            }
+        }
+
+        async function initializePage() {
+            initializeAllCharts();
+            await loadDataFromGoogleSheet();
+            await Promise.all([loadInvoicesData(), loadPurchasesData()]);
+            enrichAndRenderInvoices();
+            applyFiltersAndRedraw();
+        }
+
+        function setupEventListeners() {
+            document.getElementById('refreshBtn').addEventListener('click', initializePage);
+            document.querySelectorAll('.tab-button').forEach(btn => btn.addEventListener('click', () => switchTab(btn.id.replace('Tab', ''))));
+            
+            const debounce = (func, delay) => {
+                let timeout;
+                return function(...args) {
+                    clearTimeout(timeout);
+                    timeout = setTimeout(() => func.apply(this, args), delay);
+                };
+            };
+            const debouncedRedraw = debounce(applyFiltersAndRedraw, 300);
+
+            document.querySelectorAll('.advanced-filter select, .advanced-filter input').forEach(el => el.addEventListener('input', debouncedRedraw));
+            
+            let searchTimeout;
+            document.getElementById('searchInput').addEventListener('input', () => { clearTimeout(searchTimeout); searchTimeout = setTimeout(handleSearch, 300); });
+            document.getElementById('clearSearch').addEventListener('click', clearSearch);
+            document.getElementById('closeModal').addEventListener('click', closeModal);
+            document.getElementById('supplierModal').addEventListener('click', e => { if (e.target.id === 'supplierModal') closeModal(); });
+            document.getElementById('financialReportsContainer').addEventListener('click', e => { const btn = e.target.closest('button'); if(btn) handleReportGeneration(btn.dataset.report); });
+            document.getElementById('exportSuppliersExcelBtn').addEventListener('click', () => exportSuppliersData('excel'));
+            document.getElementById('exportSuppliersCsvBtn').addEventListener('click', () => exportSuppliersData('csv'));
+            document.getElementById('exportSuppliersPdfBtn').addEventListener('click', () => exportSuppliersData('pdf'));
+            document.getElementById('exportPaymentsExcelBtn').addEventListener('click', () => exportPaymentsData('excel'));
+            document.getElementById('exportPaymentsCsvBtn').addEventListener('click', () => exportPaymentsData('csv'));
+            document.getElementById('exportPaymentsPdfBtn').addEventListener('click', () => exportPaymentsData('pdf'));
+            document.getElementById('exportInvoicesExcelBtn').addEventListener('click', () => exportInvoicesData('excel'));
+            document.getElementById('exportInvoicesCsvBtn').addEventListener('click', () => exportInvoicesData('csv'));
+            document.getElementById('exportInvoicesPdfBtn').addEventListener('click', () => exportInvoicesData('pdf'));
+            document.getElementById('exportPurchasesExcelBtn').addEventListener('click', () => exportPurchasesData('excel'));
+            document.getElementById('exportPurchasesCsvBtn').addEventListener('click', () => exportPurchasesData('csv'));
+            document.querySelectorAll('[data-chart]').forEach(button => { button.addEventListener('click', () => { handleChartExport(button.dataset.chart, button.dataset.format); }); });
+            document.getElementById('paymentsApplyFilter').addEventListener('click', updatePaymentsWithLocalFilters);
+            document.getElementById('invoiceApplyFilters').addEventListener('click', renderInvoicesView);
+            document.getElementById('purchaseApplyFilters').addEventListener('click', renderPurchasesView);
+        }
+
+        async function loadDataFromGoogleSheet() {
+            const dataStatus = document.getElementById('dataStatus');
+            dataStatus.className = 'mt-4 p-4 bg-blue-50 border-blue-200 rounded-lg';
+            dataStatus.innerHTML = `<div class="loading mr-2"></div> ${translate('loadingData')}`;
+            dataStatus.classList.remove('hidden');
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent('Copy of Balance Sheet Database')}?key=${API_KEY}`;
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`Network Error: ${response.statusText}`);
+                const json = await response.json();
+                if (!json.values || json.values.length < 2) throw new Error("No data found.");
+                const headers = json.values.shift().map(h => h.trim());
+                allData = json.values.map(row => {
+                    const obj = headers.reduce((acc, h, i) => ({ ...acc, [h]: row[i] }), {});
+                    return { supplier: obj['supplier'] || '', date: obj['Date'] || '', description: obj['Description\n(الوصف)'] || obj['Description'] || '', transactionId: obj['Transaction ID\n(معرّف المعاملة)'] || '', documentLink: obj['Document Link'] || '', dueDate: obj['Due Date'] || '', amount: cleanAmount(obj['Amount']), dueStatus: obj['Due Status According to Supplier Type'] || '', payStatus: obj['Invoice Pay Status'] || null, outstandingBalance: cleanAmount(obj['Outstanding \nBalance'] || obj['Outstanding Balance']), amountWithMinus: cleanAmount(obj['Amount with Minus']), agreementDuration: obj['Agreement Duration'] || '', rawDate: parseDate(obj['Date']), rawDueDate: parseDate(obj['Due Date']), isPayment: cleanAmount(obj['Amount with Minus']) < 0 };
+                }).filter(t => t.supplier);
+
+                dataStatus.className = 'mt-4 p-4 bg-green-50 border-green-200 text-green-800 rounded-lg';
+                dataStatus.innerHTML = `<i class="fas fa-check-circle mr-2"></i>${translate('dataUpdated')} ${allData.length} ${translate('transactions')}`;
+                setTimeout(() => dataStatus.classList.add('hidden'), 3000);
+            } catch (error) {
+                console.error('Error fetching data:', error);
+                dataStatus.className = 'mt-4 p-4 bg-red-50 border-red-200 text-red-800 rounded-lg';
+                dataStatus.innerHTML = `<i class="fas fa-exclamation-circle mr-2"></i>${translate('dataFailed')} ${error.message}`;
+            }
+        }
+        
+        function getValueByAliases(row, headerMap, aliases) {
+            for (const alias of aliases) {
+                const sanitizedAlias = alias.toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, '');
+                if (headerMap.hasOwnProperty(sanitizedAlias)) {
+                    const index = headerMap[sanitizedAlias];
+                    return row[index] || '';
+                }
+            }
+            return '';
+        }
+
+        async function loadInvoicesData() {
+            const statusDiv = document.getElementById('invoicesStatus');
+            statusDiv.className = 'mt-4 p-4 bg-blue-50 border-blue-200 rounded-lg';
+            statusDiv.innerHTML = `<div class="loading mr-2"></div>${translate('loadingData')}`;
+            statusDiv.classList.remove('hidden');
+
+            const SHEET_NAME = 'Invoices (Data Base)';
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}?key=${API_KEY}`;
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`Network Error: ${response.statusText}`);
+                const json = await response.json();
+                if (!json.values || json.values.length < 2) {
+                    allInvoicesData = [];
+                    throw new Error("No invoice data found.");
+                };
+
+                const headers = json.values.shift().map(h => h.trim());
+                const headerMap = {};
+                headers.forEach((header, index) => {
+                    const sanitizedHeader = header.toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, '');
+                    if (sanitizedHeader) headerMap[sanitizedHeader] = index;
+                });
+                
+                allInvoicesData = json.values.map(row => {
+                    const dateStr = getValueByAliases(row, headerMap, ['date']);
+                    const invoiceNumber = getValueByAliases(row, headerMap, ['invoice_number', 'invoicenumber']);
+                    return {
+                        invoice_number: invoiceNumber,
+                        supplier: getValueByAliases(row, headerMap, ['supplier']),
+                        destination: getValueByAliases(row, headerMap, ['destination']),
+                        company: getValueByAliases(row, headerMap, ['company']),
+                        tax: cleanAmount(getValueByAliases(row, headerMap, ['tax'])),
+                        sub_total: cleanAmount(getValueByAliases(row, headerMap, ['sub_total', 'subtotal'])),
+                        amount: cleanAmount(getValueByAliases(row, headerMap, ['amount', 'totalamount(tlorsr)', 'totalamount'])),
+                        date: dateStr,
+                        paymentType: getValueByAliases(row, headerMap, ['paymenttypeoninvoice', 'paymenttype', 'payment']),
+                        invoiceCategory: getValueByAliases(row, headerMap, ['invoicecategory']),
+                        supplierCategory: getValueByAliases(row, headerMap, ['suppliercategoryforbalancesheet', 'suppliercategory']),
+                        dueDate: getValueByAliases(row, headerMap, ['due_date', 'duedate']),
+                        agreementDuration: getValueByAliases(row, headerMap, ['agreementduration', 'duration']),
+                        physicalPORef: getValueByAliases(row, headerMap, ['physicalporeference', 'physicalporef', 'ponumber', 'poref']),
+                        foodicsPORef: getValueByAliases(row, headerMap, ['foodicsporeference', 'foodicsporef', 'foodicspo']),
+                        atmCard: getValueByAliases(row, headerMap, ['atmcard']),
+                        rawDate: parseDate(dateStr),
+                        rawBusinessDate: parseDate(getValueByAliases(row, headerMap, ['business date', 'businessdate', 'bdate', 'تاريخ العمل'])),
+                        invoiceType: getValueByAliases(row, headerMap, ['invoicetype', 'نوعالفاتورة']),
+                        receiptStatus: getValueByAliases(row, headerMap, ['receiptstatus', 'حالةاستلام']),
+                    };
+                }).filter(inv => inv.supplier && inv.invoice_number && inv.invoice_number.trim() !== '""');
+
+                populateInvoiceFilters();
+                statusDiv.classList.add('hidden');
+            } catch (error) {
+                console.error('Error fetching invoices data:', error);
+                statusDiv.className = 'mt-4 p-4 bg-red-50 border-red-200 text-red-800 rounded-lg';
+                statusDiv.innerHTML = `<i class="fas fa-exclamation-circle mr-2"></i>${translate('dataFailed')} ${error.message}`;
+            }
+        }
+
+        function enrichAndRenderInvoices() {
+            const statusMap = new Map();
+            allData.forEach(item => {
+                const transactionId = item.transactionId ? item.transactionId.trim() : null;
+                if (transactionId && transactionId !== "") {
+                    statusMap.set(transactionId, {
+                        dueStatus: item.dueStatus,
+                        payStatus: item.payStatus
+                    });
+                }
+            });
+
+            allInvoicesData.forEach(invoice => {
+                let finalStatus = 'N/A';
+                const physicalPORef = invoice.physicalPORef ? invoice.physicalPORef.trim() : null;
+                const invoiceNumber = invoice.invoice_number ? invoice.invoice_number.trim() : null;
+                
+                let statusObj = null;
+                if (physicalPORef && statusMap.has(physicalPORef)) {
+                    statusObj = statusMap.get(physicalPORef);
+                } else if (invoiceNumber && statusMap.has(invoiceNumber)) {
+                    statusObj = statusMap.get(invoiceNumber);
+                }
+
+                if (statusObj) {
+                    if (statusObj.payStatus && (statusObj.payStatus.includes('تم السداد') || statusObj.payStatus.includes('تم الدفع'))) {
+                        finalStatus = statusObj.payStatus;
+                    } else {
+                        finalStatus = statusObj.dueStatus || 'N/A';
+                    }
+                }
+                invoice.dueStatus = finalStatus;
+            });
+            renderInvoicesView();
+        }
+
+        function getFilteredData() {
+            const dateFilter = document.getElementById('dateFilter').value;
+            const statusFilter = document.getElementById('statusFilter').value;
+            const amountFilter = document.getElementById('amountFilter').value;
+            const typeFilter = document.getElementById('typeFilter').value;
+            let filtered = [...allData];
+            if (dateFilter !== 'all') {
+                const days = parseInt(dateFilter);
+                const cutoffDate = new Date();
+                cutoffDate.setDate(cutoffDate.getDate() - days);
+                filtered = filtered.filter(t => t.rawDate && t.rawDate >= cutoffDate);
+            }
+            if (statusFilter !== 'all') {
+                filtered = filtered.filter(t => {
+                    if (t.isPayment) return false;
+                    const isOverdue = t.dueStatus?.includes('متأخر');
+                    const isPaid = t.payStatus?.includes('تم السداد') || t.payStatus?.includes('تم الدفع');
+                    const isDueSoon = !isOverdue && !isPaid;
+                    if (statusFilter === 'overdue') return isOverdue && !isPaid;
+                    if (statusFilter === 'due_soon') return isDueSoon;
+                    if (statusFilter === 'paid') return isPaid;
+                    return false;
+                });
+            }
+            if (amountFilter !== 'all') {
+                filtered = filtered.filter(t => {
+                    if (t.isPayment) return false;
+                    const amount = t.amount;
+                    if (amountFilter === 'small') return amount < 1000;
+                    if (amountFilter === 'medium') return amount >= 1000 && amount <= 10000;
+                    if (amountFilter === 'large') return amount > 10000;
+                    return false;
+                });
+            }
+            if (typeFilter !== 'all') {
+                filtered = filtered.filter(t => {
+                    if (typeFilter === 'invoice') return !t.isPayment;
+                    if (typeFilter === 'payment') return t.isPayment;
+                    return false;
+                });
+            }
+            return filtered;
+        }
+
+        function processData(transactions) {
+            if (!transactions || !transactions.length) return [];
+            const groupedBySupplier = transactions.reduce((acc, t) => {
+                if (!acc[t.supplier]) acc[t.supplier] = [];
+                acc[t.supplier].push(t);
+                return acc;
+            }, {});
+            const summaries = Object.keys(groupedBySupplier).map(supplierName => {
+                const supplierTransactions = groupedBySupplier[supplierName];
+                let totalPurchaseAmount = 0, totalPayments = 0, calculatedOverdueInvoiceSum = 0;
+                supplierTransactions.forEach(t => {
+                    if (t.amountWithMinus > 0) {
+                        totalPurchaseAmount += t.amountWithMinus;
+                        const isPaid = t.payStatus?.includes('تم السداد') || t.payStatus?.includes('تم الدفع');
+                        if (t.dueStatus?.includes('متأخر') && !isPaid) {
+                            calculatedOverdueInvoiceSum += t.amountWithMinus;
+                        }
+                    } else if (t.amountWithMinus < 0) {
+                        totalPayments += Math.abs(t.amountWithMinus);
+                    }
+                });
+                const outstandingBalance = totalPurchaseAmount - totalPayments;
+                const correctedOverdueSum = outstandingBalance > 0 ? Math.min(calculatedOverdueInvoiceSum, outstandingBalance) : 0;
+                const riskLevel = calculateRiskLevel(outstandingBalance, correctedOverdueSum);
+                const paymentTx = supplierTransactions.filter(t => t.isPayment);
+                const averagePaymentDays = paymentTx.length > 0 ? Math.round(paymentTx.reduce((sum, t) => sum + (parseInt(t.agreementDuration) || 30), 0) / paymentTx.length) : 0;
+                const liyaCount = supplierTransactions.filter(t => t.amountWithMinus > 0).length;
+                const diyaCount = supplierTransactions.filter(t => t.amountWithMinus < 0).length;
+
+                return { supplier: supplierName, totalPurchaseAmount, totalPayments, outstandingBalance, calculatedOverdueInvoiceSum: correctedOverdueSum, transactionCount: supplierTransactions.length, liyaCount: liyaCount, diyaCount: diyaCount, transactions: supplierTransactions, riskLevel, averagePaymentDays };
+            });
+            return summaries.sort((a, b) => Math.abs(b.outstandingBalance) - Math.abs(a.outstandingBalance));
+        }
+
+        function calculateRiskLevel(outstanding, overdueSum) {
+            const outstandingAbs = Math.abs(outstanding);
+            if (outstandingAbs <= 0) return 'low';
+            const overdueRatio = overdueSum / outstandingAbs;
+            if (outstandingAbs > 50000 && overdueRatio > 0.3) return 'high';
+            if (outstandingAbs > 20000 || overdueRatio > 0.5) return 'high';
+            if (outstandingAbs > 5000 || overdueRatio > 0.2) return 'medium';
+            return 'low';
+        }
+
+        function applyFiltersAndRedraw() {
+            try {
+                currentFilteredTransactions = getFilteredData();
+                currentFilteredSummaries = processData(currentFilteredTransactions);
+                updateDisplay(currentFilteredTransactions, currentFilteredSummaries);
+                renderInvoicesView();
+                renderPurchasesView();
+            } catch (error) {
+                console.error("Failed to apply filters and redraw:", error);
+            }
+        }
+
+        function updateDisplay(transactions, summaries) {
+            const currentView = document.querySelector('.tab-button.active').id.replace('Tab', '');
+            updateStats(transactions, summaries);
+            if (currentView === 'dashboard') updateDashboard(transactions, summaries);
+            else if (currentView === 'suppliers') updateSuppliersTable(summaries);
+            else if (currentView === 'payments') updatePaymentsWithLocalFilters();
+            else if (currentView === 'visualization') updateVisualizations(transactions, summaries);
+        }
+
+        try {
+        if (window.parent) {
+            const payableData = {
+                type: 'PAYABLE_DATA',
+                payload: {
+                    totalDues: formatCurrency(summaries.reduce((sum, s) => sum + s.outstandingBalance, 0)),
+                    totalSuppliers: String(summaries.length),
+                    overdues: formatCurrency(summaries.reduce((sum, s) => sum + s.calculatedOverdueInvoiceSum, 0)),
+                    totalTransactions: String(allData.length),
+                    suppliers: summaries.map(s => ({
+                        supplier: s.supplier,
+                        totalPurchases: s.totalPurchaseAmount,
+                        totalPayments: s.totalPayments,
+                        outstandingBalance: s.outstandingBalance,
+                        transactionCount: s.transactionCount
+                    })),
+                    invoices: allInvoicesData.map(inv => ({
+                        invoiceNumber: inv.invoice_number,
+                        supplier: inv.supplier,
+                        amount: inv.amount,
+                        dueStatus: inv.dueStatus,
+                        dueDate: inv.dueDate
+                    })),
+                    purchases: allPurchasesData.map(p => ({
+                        itemName: p.itemName,
+                        quantity: p.quantity,
+                        unitCost: p.unitCost,
+                        totalAfterTax: p.totalAfterTax,
+                        supplier: p.supplier
+                    })),
+                    payments: allData.filter(t => t.isPayment).map(t => ({
+                        supplier: t.supplier,
+                        amount: Math.abs(t.amountWithMinus),
+                        method: determinePaymentMethod(t),
+                        transactionId: t.transactionId
+                    }))
+                }
+            };
+            parent.postMessage(payableData, '*');
+        }
+    } catch (e) {
+        console.error("Payable dashboard could not post message to parent:", e);
+    }
+
+        // REPLACE your entire old updateStats function with this correct one.
+
+function updateStats(transactions, summaries) {
+    // This is your original code to update the stats cards. It is correct.
+    const statsSection = document.getElementById('statsSection');
+    const totalOutstanding = summaries.reduce((sum, s) => sum + s.outstandingBalance, 0);
+    const totalOverdue = summaries.reduce((sum, s) => sum + s.calculatedOverdueInvoiceSum, 0);
+    const stats = [
+        { icon: 'fas fa-dollar-sign', label: translate('totalDues'), value: formatCurrency(totalOutstanding) },
+        { icon: 'fas fa-users', label: translate('totalSuppliers'), value: formatNumber(summaries.length) },
+        { icon: 'fas fa-exclamation-triangle', label: translate('overdues'), value: formatCurrency(totalOverdue) },
+        { icon: 'fas fa-file-invoice', label: translate('totalTransactions'), value: formatNumber(allData.length) }
+    ];
+    statsSection.innerHTML = stats.map(stat => `<div class="kpi-card"><i class="${stat.icon} fa-2x mb-2 text-green-200"></i><p class="text-sm">${stat.label}</p><p class="text-2xl font-bold">${stat.value}</p></div>`).join('');
+
+    // START: Corrected code to send real-time data to the main portal
+    // This is now INSIDE the function and will run every time data updates.
+    try {
+        if (window.parent) {
+            const payableData = {
+                type: 'PAYABLE_DATA',
+                payload: {
+                    totalDues: formatCurrency(totalOutstanding),
+                    totalSuppliers: String(summaries.length),
+                    overdues: formatCurrency(totalOverdue),
+                    totalTransactions: String(allData.length)
+                }
+            };
+            parent.postMessage(payableData, '*');
+        }
+    } catch (e) {
+        console.error("Payable dashboard could not post message to parent:", e);
+    }
+    // END: Code to send real-time data
+}
+
+        function updateDashboard(transactions, summaries) {
+            updateDashboardCharts(transactions, summaries);
+            updateRiskSuppliers(summaries);
+        }
+        
+        function populateInvoiceFilters() {
+            const filtersToPopulate = [
+                { id: 'companyFilter', key: 'company' }, { id: 'supplierTypeFilter', key: 'supplierCategory' },
+                { id: 'invoiceTypeFilter', key: 'invoiceType' }, { id: 'receiptStatusFilter', key: 'receiptStatus' }
+            ];
+            filtersToPopulate.forEach(filterInfo => {
+                let values = allInvoicesData.map(inv => inv[filterInfo.key]).filter(Boolean);
+                if (filterInfo.key === 'company') {
+                    values = values.map(company => {
+                        let normalizedCompany = company.trim();
+                        if (normalizedCompany.toLowerCase().replace(/\s+/g, '') === 'spaceless') return 'Space Less';
+                        return normalizedCompany;
+                    });
+                }
+                const uniqueValues = [...new Set(values)];
+                const select = document.getElementById(filterInfo.id);
+                select.innerHTML = `<option value="all">${translate('all')}</option>`;
+                uniqueValues.sort().forEach(val => { select.innerHTML += `<option value="${val}">${val}</option>`; });
+            });
+
+            const departments = [...new Set(allInvoicesData.map(inv => inv.destination).filter(Boolean))];
+            const deptSelect = document.getElementById('invoiceDepartmentFilter');
+            deptSelect.innerHTML = `<option value="all">${translate('all')}</option>`;
+            departments.sort().forEach(dep => { deptSelect.innerHTML += `<option value="${dep}">${dep}</option>`; });
+        }
+
+        function renderInvoicesView() {
+            let filtered = [...allInvoicesData];
+            const supplierFilter = document.getElementById('invoiceSupplierFilter').value.toLowerCase();
+            const invoiceNumberFilter = document.getElementById('invoiceNumberFilter').value.toLowerCase();
+            const departmentFilter = document.getElementById('invoiceDepartmentFilter').value;
+            const companyFilter = document.getElementById('companyFilter').value;
+            const supplierTypeFilter = document.getElementById('supplierTypeFilter').value;
+            const invoiceTypeFilter = document.getElementById('invoiceTypeFilter').value;
+            const receiptStatusFilter = document.getElementById('receiptStatusFilter').value;
+            const startDate = document.getElementById('invoiceStartDate').value;
+            const endDate = document.getElementById('invoiceEndDate').value;
+
+            if (supplierFilter) filtered = filtered.filter(inv => inv.supplier.toLowerCase().includes(supplierFilter));
+            if (invoiceNumberFilter) filtered = filtered.filter(inv => inv.invoice_number.toLowerCase().includes(invoiceNumberFilter));
+            if (departmentFilter !== 'all') filtered = filtered.filter(inv => inv.destination === departmentFilter);
+            if (companyFilter !== 'all') filtered = filtered.filter(inv => inv.company === companyFilter);
+            if (supplierTypeFilter !== 'all') filtered = filtered.filter(inv => inv.supplierCategory === supplierTypeFilter);
+            if (invoiceTypeFilter !== 'all') filtered = filtered.filter(inv => inv.invoiceType === invoiceTypeFilter);
+            if (receiptStatusFilter !== 'all') filtered = filtered.filter(inv => inv.receiptStatus === receiptStatusFilter);
+            if (startDate) { const start = new Date(startDate); filtered = filtered.filter(inv => inv.rawBusinessDate && inv.rawBusinessDate >= start); }
+            if (endDate) { const end = new Date(endDate); end.setHours(23, 59, 59, 999); filtered = filtered.filter(inv => inv.rawBusinessDate && inv.rawBusinessDate <= end); }
+
+            currentFilteredInvoices = filtered;
+            renderInvoicesTable(filtered);
+            updateInvoiceInsights(filtered);
+        }
+          try {
+        if (window.parent) {
+            const invoiceData = {
+                type: 'INVOICE_DATA_DETAIL',
+                payload: filtered.map(inv => ({
+                    invoiceNumber: inv.invoice_number,
+                    supplier: inv.supplier,
+                    amount: inv.amount,
+                    dueStatus: inv.dueStatus
+                }))
+            };
+            parent.postMessage(invoiceData, '*');
+        }
+    } catch (e) {
+        console.error("Invoices dashboard could not post detailed invoice data:", e);
+    }
+
+        function updateInvoiceInsights(invoices) {
+            const statsSection = document.getElementById('invoiceStatsSection');
+            const totalAmount = invoices.reduce((sum, inv) => sum + inv.amount, 0);
+            const avgAmount = invoices.length > 0 ? totalAmount / invoices.length : 0;
+            const unpaidInvoices = allData.filter(t => !t.isPayment && !(t.payStatus?.includes('تم السداد') || t.payStatus?.includes('تم الدفع')));
+            const unpaidCount = unpaidInvoices.length;
+            const totalPaidAmount = allData.filter(t => t.isPayment).reduce((sum, t) => sum + Math.abs(t.amountWithMinus), 0);
+
+            const stats = [
+                { key: 'totalInvoiceAmount', icon: 'fas fa-coins', value: formatCurrency(totalAmount) },
+                { key: 'avgInvoiceAmount', icon: 'fas fa-balance-scale', value: formatCurrency(avgAmount) },
+                { key: 'unpaidInvoices', icon: 'fas fa-file-invoice-dollar', value: formatNumber(unpaidCount) },
+                { key: 'totalPaidAmount', icon: 'fas fa-check-double', value: formatCurrency(totalPaidAmount) }
+            ];
+            statsSection.innerHTML = stats.map(stat => `<div class="kpi-card"><i class="${stat.icon} fa-2x mb-2 text-green-200"></i><p class="text-sm">${translate(stat.key)}</p><p class="text-2xl font-bold">${stat.value}</p></div>`).join('');
+            
+            const byCompanyData = invoices.reduce((acc, inv) => {
+                let company = (inv.company || translate('unspecified')).trim();
+                if (company.toLowerCase().replace(/\s+/g, '') === 'spaceless') company = 'Space Less';
+                acc[company] = (acc[company] || 0) + inv.amount;
+                return acc;
+            }, {});
+            updateChart(charts.invoicesByCompany, Object.keys(byCompanyData), [Object.values(byCompanyData)]);
+
+            const byMonthData = invoices.reduce((acc, inv) => {
+                if (inv.rawDate) {
+                    const month = inv.rawDate.toISOString().slice(0, 7);
+                    if (!acc[month]) acc[month] = { amount: 0, count: 0 };
+                    acc[month].amount += inv.amount; acc[month].count += 1;
+                }
+                return acc;
+            }, {});
+            const sortedMonths = Object.keys(byMonthData).sort();
+            const monthLabels = sortedMonths.map(m => new Date(`${m}-02`).toLocaleDateString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US', { year: 'numeric', month: 'short', calendar: 'gregory'}));
+            const monthAmounts = sortedMonths.map(m => byMonthData[m].amount);
+            const monthCounts = sortedMonths.map(m => byMonthData[m].count);
+            updateChart(charts.invoicesByCategory, monthLabels, [monthAmounts, monthCounts]);
+        }
+        
+        function renderInvoicesTable(invoices) {
+            const tableBody = document.getElementById('invoicesTableBody');
+            if (!invoices || invoices.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="18" class="p-8 text-center text-gray-500">${translate('noInvoices')}</td></tr>`;
+                return;
+            }
+            tableBody.innerHTML = invoices.map((inv, index) => `
+                <tr class="table-row">
+                    <td class="p-2 text-xs whitespace-nowrap text-center sticky-col">${index + 1}</td>
+                    <td class="p-2 text-xs whitespace-nowrap text-right font-mono">${inv.invoice_number}</td>
+                    <td class="p-2 text-xs whitespace-nowrap text-right"><span class="px-2 py-1 text-xs rounded-full ${getStatusClass(inv.dueStatus)}">${translateStatus(inv.dueStatus)}</span></td>
+                    <td class="p-2 text-xs whitespace-nowrap text-right">${inv.supplier}</td>
+                    <td class="p-2 text-xs whitespace-nowrap text-right">${inv.destination}</td>
+                    <td class="p-2 text-xs whitespace-nowrap text-right">${inv.company}</td>
+                    <td class="p-2 text-xs whitespace-nowrap font-mono text-right">${formatCurrency(inv.tax)}</td>
+                    <td class="p-2 text-xs whitespace-nowrap font-mono text-right">${formatCurrency(inv.sub_total)}</td>
+                    <td class="p-2 text-xs whitespace-nowrap font-mono font-bold text-right">${formatCurrency(inv.amount)}</td>
+                    <td class="p-2 text-xs whitespace-nowrap text-right">${inv.date}</td>
+                    <td class="p-2 text-xs whitespace-nowrap text-right">${inv.paymentType}</td>
+                    <td class="p-2 text-xs whitespace-nowrap text-right">${inv.invoiceCategory}</td>
+                    <td class="p-2 text-xs whitespace-nowrap text-right">${inv.supplierCategory}</td>
+                    <td class="p-2 text-xs whitespace-nowrap text-right">${inv.dueDate}</td>
+                    <td class="p-2 text-xs whitespace-nowrap text-right">${inv.agreementDuration}</td>
+                    <td class="p-2 text-xs whitespace-nowrap font-mono text-right">${inv.physicalPORef}</td>
+                    <td class="p-2 text-xs whitespace-nowrap font-mono text-right">${inv.foodicsPORef}</td>
+                    <td class="p-2 text-xs whitespace-nowrap text-right">${inv.atmCard}</td>
+                </tr>
+            `).join('');
+        }
+        
+        async function loadPurchasesData() {
+            const statusDiv = document.getElementById('purchasesStatus');
+            statusDiv.classList.remove('hidden');
+            statusDiv.innerHTML = `<div class="loading mr-2"></div> ${translate('loadingData')}`;
+            const SHEET_NAME = "Daily Purchases (for Report) Net";
+            const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(SHEET_NAME)}?key=${API_KEY}`;
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error(`Network Error: ${response.statusText}`);
+                const json = await response.json();
+                if (!json.values || json.values.length < 2) { allPurchasesData = []; throw new Error("No purchase data found in sheet."); }
+
+                const headers = json.values.shift().map(h => h.trim());
+                const headerMap = {};
+                headers.forEach((header, index) => { 
+                    const sanitizedHeader = header.toLowerCase().replace(/[^a-z0-9\u0600-\u06FF]/g, '');
+                    if (sanitizedHeader) headerMap[sanitizedHeader] = index; 
+                });
+                
+                let itemNameIndex = headers.findIndex(h => (h || '').toLowerCase().trim().includes('item name'));
+                if (itemNameIndex === -1) itemNameIndex = 1;
+
+                allPurchasesData = json.values.map(row => {
+                    const dateStr = getValueByAliases(row, headerMap, ['date']);
+                    return {
+                        itemName: row[itemNameIndex] || '',
+                        itemNameAr: row[itemNameIndex + 1] || '',
+                        code: getValueByAliases(row, headerMap, ['icssku', 'sku', 'code']),
+                        unit: getValueByAliases(row, headerMap, ['unit', 'itemunit']),
+                        itemType: getValueByAliases(row, headerMap, ['catagory', 'category', 'itemcategory', 'item type']),
+                        quantity: cleanAmount(getValueByAliases(row, headerMap, ['qty', 'quantity'])),
+                        unitCost: cleanAmount(getValueByAliases(row, headerMap, ['unitprice', 'price', 'unitcost'])),
+                        additionalCost: cleanAmount(getValueByAliases(row, headerMap, ['additionalcost'])),
+                        totalBeforeTax: cleanAmount(getValueByAliases(row, headerMap, ['subtotal', 'sub_total', 'totalbeforetax'])),
+                        tax: cleanAmount(getValueByAliases(row, headerMap, ['tax'])),
+                        totalAfterTax: cleanAmount(getValueByAliases(row, headerMap, ['amount', 'totalamount', 'totalaftertax'])),
+                        supplier: getValueByAliases(row, headerMap, ['supplier']),
+                        atmCard: getValueByAliases(row, headerMap, ['atm card', 'atmcard']),
+                        rawDate: parseDate(dateStr),
+                        rawBusinessDate: parseDate(getValueByAliases(row, headerMap, ['business date', 'businessdate', 'bdate', 'تاريخ العمل']))
+                    };
+                }).filter(p => (p.itemName && p.itemName.trim() !== '') || (p.itemNameAr && p.itemNameAr.trim() !== ''));
+
+                populatePurchaseFilters();
+                populatePurchaseTypeFilter();
+                statusDiv.classList.add('hidden');
+            } catch (error) {
+                console.error('Error fetching purchases data:', error);
+                allPurchasesData = [];
+                statusDiv.className = 'mt-4 p-4 bg-red-50 border-red-200 text-red-800 rounded-lg';
+                statusDiv.innerHTML = `<i class="fas fa-exclamation-circle mr-2"></i> ${translate('dataFailed')}`;
+            }
+        }
+
+        function populatePurchaseFilters() {
+            const categories = [...new Set(allPurchasesData.map(p => p.itemType).filter(Boolean))];
+            const select = document.getElementById('purchaseCategoryFilter');
+            select.innerHTML = `<option value="all">${translate('all')}</option>`;
+            categories.sort().forEach(cat => { select.innerHTML += `<option value="${cat}">${cat}</option>`; });
+        }
+
+        function populatePurchaseTypeFilter() {
+            const select = document.getElementById('purchaseTypeFilter');
+            const currentValue = select.value;
+            
+            select.innerHTML = `
+                <option value="all" class="translatable" data-en="All">${translate('all')}</option>
+                <option value="supplier" class="translatable" data-en="By Supplier (Cash/Credit)">${translate('By Supplier (Cash/Credit)')}</option>
+            `;
+
+            const atmCards = [...new Set(allPurchasesData.map(p => p.atmCard).filter(Boolean))];
+            
+            if (atmCards.length > 0) {
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = currentLang === 'ar' ? '--- بطاقات الصراف ---' : '--- ATM Cards ---';
+                
+                atmCards.sort().forEach(card => {
+                    const option = document.createElement('option');
+                    option.value = card;
+                    option.textContent = card;
+                    optgroup.appendChild(option);
+                });
+                select.appendChild(optgroup);
+            }
+            select.value = currentValue;
+        }
+
+        function renderPurchasesView() {
+            let filtered = [...allPurchasesData];
+            const startDate = document.getElementById('purchaseStartDate').value;
+            const endDate = document.getElementById('purchaseEndDate').value;
+            const supplierFilter = document.getElementById('purchaseSupplierFilter').value.toLowerCase();
+            const itemFilter = document.getElementById('purchaseItemFilter').value.toLowerCase();
+            const categoryFilter = document.getElementById('purchaseCategoryFilter').value;
+            const purchaseTypeFilter = document.getElementById('purchaseTypeFilter').value;
+
+            if (startDate) { const start = new Date(startDate); filtered = filtered.filter(p => p.rawBusinessDate && p.rawBusinessDate >= start); }
+            if (endDate) { const end = new Date(endDate); end.setHours(23, 59, 59, 999); filtered = filtered.filter(p => p.rawBusinessDate && p.rawBusinessDate <= end); }
+            if (supplierFilter) filtered = filtered.filter(p => p.supplier.toLowerCase().includes(supplierFilter));
+            if (itemFilter) filtered = filtered.filter(p => (p.itemName && p.itemName.toLowerCase().includes(itemFilter)) || (p.itemNameAr && p.itemNameAr.toLowerCase().includes(itemFilter)));
+            if (categoryFilter !== 'all') filtered = filtered.filter(p => p.itemType === categoryFilter);
+            
+            if (purchaseTypeFilter === 'supplier') {
+                filtered = filtered.filter(p => !p.atmCard || p.atmCard.trim() === '');
+            } else if (purchaseTypeFilter !== 'all') {
+                filtered = filtered.filter(p => p.atmCard === purchaseTypeFilter);
+            }
+            
+            currentFilteredPurchases = filtered;
+            updatePurchaseStats(filtered);
+            renderPurchasesTable(filtered);
+        }
+        
+        try {
+        if (window.parent) {
+            const purchaseData = {
+                type: 'PURCHASE_DATA_DETAIL',
+                payload: filtered.map(p => ({
+                    itemName: p.itemName,
+                    quantity: p.quantity,
+                    unitCost: p.unitCost,
+                    totalAfterTax: p.totalAfterTax,
+                    supplier: p.supplier
+                }))
+            };
+            parent.postMessage(purchaseData, '*');
+        }
+    } catch (e) {
+        console.error("Purchases dashboard could not post detailed purchase data:", e);
+    }
+        function updatePurchaseStats(filteredData) {
+            const statsSection = document.getElementById('purchaseStatsSection');
+            const totalAmount = filteredData.reduce((sum, p) => sum + p.totalAfterTax, 0);
+            const totalQty = filteredData.reduce((sum, p) => sum + p.quantity, 0);
+            const uniqueItems = [...new Set(filteredData.map(p => p.itemName))].length;
+            
+            const stats = [
+                { key: 'totalPurchaseAmount', icon: 'fas fa-dollar-sign', value: formatCurrency(totalAmount) },
+                { key: 'totalItemsPurchased', icon: 'fas fa-boxes', value: formatNumber(totalQty) },
+                { key: 'uniqueItems', icon: 'fas fa-tags', value: formatNumber(uniqueItems) },
+                { key: 'totalPurchaseRecords', icon: 'fas fa-file-invoice', value: formatNumber(filteredData.length) }
+            ];
+            statsSection.innerHTML = stats.map(stat => `<div class="kpi-card"><i class="${stat.icon} fa-2x mb-2 text-green-200"></i><p class="text-sm">${translate(stat.key)}</p><p class="text-2xl font-bold">${stat.value}</p></div>`).join('');
+        }
+
+        function renderPurchasesTable(data) {
+            const tableBody = document.getElementById('purchasesTableBody');
+            if (!data || data.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="11" class="p-8 text-center text-gray-500">${translate('noResults')}</td></tr>`;
+                return;
+            }
+            tableBody.innerHTML = data.map((item, index) => {
+                const displayName = currentLang === 'ar' && item.itemNameAr && item.itemNameAr.trim() !== '' ? item.itemNameAr : item.itemName;
+                return `
+                <tr class="table-row">
+                    <td class="p-2 text-xs whitespace-nowrap text-center sticky-col">${index + 1}</td>
+                    <td class="p-2 text-xs whitespace-nowrap text-right font-medium">${displayName}</td>
+                    <td class="p-2 text-xs whitespace-nowrap text-right font-mono">${item.code}</td>
+                    <td class="p-2 text-xs whitespace-nowrap text-right">${item.unit}</td>
+                    <td class="p-2 text-xs whitespace-nowrap text-right">${item.itemType}</td>
+                    <td class="p-2 text-xs whitespace-nowrap text-right font-mono">${formatNumber(item.quantity)}</td>
+                    <td class="p-2 text-xs whitespace-nowrap font-mono text-right">${formatCurrency(item.unitCost)}</td>
+                    <td class="p-2 text-xs whitespace-nowrap font-mono text-right">${formatCurrency(item.additionalCost)}</td>
+                    <td class="p-2 text-xs whitespace-nowrap font-mono text-right">${formatCurrency(item.totalBeforeTax)}</td>
+                    <td class="p-2 text-xs whitespace-nowrap font-mono text-right">${formatCurrency(item.tax)}</td>
+                    <td class="p-2 text-xs whitespace-nowrap font-mono font-bold text-right">${formatCurrency(item.totalAfterTax)}</td>
+                </tr>`;
+            }).join('');
+        }
+        
+        function initializeAllCharts() {
+            const options = { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { font: { family: 'Cairo' } } } } };
+            const currencyOptions = { ...options, scales: { y: { beginAtZero: true, ticks: { callback: v => formatCurrency(v) } } } };
+            const createChart = (id, type, data, opts) => {
+                if (charts[id.replace('Chart', '')]) { charts[id.replace('Chart', '')].destroy(); }
+                const ctx = document.getElementById(id)?.getContext('2d');
+                if (ctx) charts[id.replace('Chart', '')] = new Chart(ctx, { type, data, options: opts });
+            };
+            
+            createChart('cashFlowChart', 'line', { labels: [], datasets: [{ label: translate('purchases'), borderColor: '#ea8990', backgroundColor: 'rgba(234, 137, 144, 0.1)', fill: true, tension: 0.4 }, { label: translate('payments'), borderColor: '#284b44', backgroundColor: 'rgba(40, 75, 68, 0.1)', fill: true, tension: 0.4 }] }, currencyOptions);
+            createChart('agingChart', 'doughnut', { labels: [], datasets: [{ backgroundColor: ['#f59e0b', '#ef4444', '#b91c1c', '#7f1d1d'] }] }, options);
+            createChart('paymentPerformanceChart', 'bar', { labels: [], datasets: [{ label: translate('invoiceCount'), backgroundColor: ['#10b981', '#f59e0b', '#ef4444', '#6b7280'] }] }, { ...options, scales: { y: { beginAtZero: true } } });
+            createChart('supplierDistributionChart', 'pie', { labels: [], datasets: [{ backgroundColor: ['#10b981', '#f59e0b', '#ef4444'] }] }, options);
+            createChart('topSuppliersChart', 'bar', { labels: [], datasets: [{ label: translate('outstandingBalance'), backgroundColor: '#284b44' }] }, currencyOptions);
+            createChart('timelineChart', 'line', { labels: [], datasets: [{ label: translate('purchases'), borderColor: '#ea8990' }, { label: translate('payments'), borderColor: '#284b44' }] }, currencyOptions);
+            createChart('invoiceStatusChart', 'doughnut', { labels: [], datasets: [{ backgroundColor: ['#10b981', '#f59e0b', '#ef4444'] }] }, options);
+            createChart('amountDistributionChart', 'bar', { labels: [], datasets: [{ label: translate('invoiceCount'), backgroundColor: ['#3b82f6', '#8b5cf6', '#f59e0b'] }] }, { ...options, scales: { y: { beginAtZero: true } } });
+            createChart('paymentDaysChart', 'radar', { labels: [], datasets: [{ label: translate('averagePaymentDays'), borderColor: '#956c2a', backgroundColor: 'rgba(149,108,42,0.2)' }] }, options);
+            createChart('invoicesByCompanyChart', 'pie', { labels: [], datasets: [{ backgroundColor: ['#284b44', '#956c2a', '#ea8990', '#4a887b', '#7d5a23'] }] }, options);
+            
+            const monthlyChartCtx = document.getElementById('invoicesByCategoryChart')?.getContext('2d');
+            if(monthlyChartCtx) {
+                if (charts.invoicesByCategory) { charts.invoicesByCategory.destroy(); }
+                charts.invoicesByCategory = new Chart(monthlyChartCtx, {
+                    type: 'bar',
+                    data: { labels: [], datasets: [
+                        { label: translate('totalAmount'), data: [], backgroundColor: '#284b44', yAxisID: 'y' },
+                        { label: translate('invoiceCount'), data: [], borderColor: '#956c2a', type: 'line', fill: false, yAxisID: 'y1' }
+                    ]},
+                    options: { responsive: true, maintainAspectRatio: false, scales: { y: { type: 'linear', display: true, position: 'left', ticks: { callback: v => formatCurrency(v) } }, y1: { type: 'linear', display: true, position: 'right', grid: { drawOnChartArea: false } } } }
+                });
+            }
+        }
+
+        function updateChart(chart, labels, datasetsData) {
+            if (!chart) return;
+            chart.data.labels = labels;
+            chart.data.datasets.forEach((dataset, i) => { dataset.data = datasetsData[i]; });
+            chart.update();
+        }
+
+        function updateDashboardCharts(transactions, summaries) {
+            const cashFlowData = calculateMonthlyData(transactions);
+            updateChart(charts.cashFlow, cashFlowData.labels, [cashFlowData.purchases, cashFlowData.payments]);
+
+            const agingData = calculateAgingData(transactions);
+            updateChart(charts.aging, Object.keys(agingData).map(k => translate(k)), [Object.values(agingData)]);
+
+            const paymentPerfData = calculatePaymentPerformanceData(transactions);
+            updateChart(charts.paymentPerformance, Object.keys(paymentPerfData).map(k => translate(k)), [Object.values(paymentPerfData)]);
+            
+            const supplierDistData = calculateRiskDistribution(summaries);
+            updateChart(charts.supplierDistribution, Object.keys(supplierDistData).map(k => translate(k)), [Object.values(supplierDistData)]);
+        }
+        
+        function updateVisualizations(transactions, summaries) {
+            const topSuppliersData = [...summaries].sort((a, b) => b.outstandingBalance - a.outstandingBalance).slice(0, 10);
+            updateChart(charts.topSuppliers, topSuppliersData.map(s => s.supplier.substring(0, 20)), [topSuppliersData.map(s => s.outstandingBalance)]);
+
+            const timelineData = calculateMonthlyData(transactions);
+            updateChart(charts.timeline, timelineData.labels, [timelineData.purchases, timelineData.payments]);
+
+            const invoiceStatusData = calculateInvoiceStatusData(transactions);
+            updateChart(charts.invoiceStatus, Object.keys(invoiceStatusData).map(k => translate(k)), [Object.values(invoiceStatusData)]);
+
+            const amountDistData = calculateAmountDistribution(transactions);
+            updateChart(charts.amountDistribution, [translate('smallAmount'), translate('mediumAmount'), translate('largeAmount')], [[amountDistData['<1k'], amountDistData['1k-10k'], amountDistData['>10k']]]);
+
+            const paymentDaysData = calculatePaymentDaysData(summaries);
+            updateChart(charts.paymentDays, paymentDaysData.labels, [paymentDaysData.values]);
+        }
+        
+        function updateRiskSuppliers(summaries) { const highRisk = summaries.filter(s => s.riskLevel === 'high').slice(0, 5); document.getElementById('riskSuppliers').innerHTML = highRisk.length === 0 ? `<div class="text-center text-gray-500 py-4">${translate('noHighRisk')}</div>` : highRisk.map(s => `<div class="flex items-center justify-between p-3 bg-red-50 rounded-lg"><div><div class="font-medium">${s.supplier}</div><div class="text-sm text-red-600">${formatCurrency(s.outstandingBalance)}</div></div><span class="supplier-status-indicator status-critical"></span></div>`).join(''); }
+        function calculateMonthlyData(transactions) { const data = {}; transactions.forEach(t => { if(t.rawDate) { const key = t.rawDate.toISOString().slice(0,7); if (!data[key]) data[key] = { purchases: 0, payments: 0 }; if (t.amountWithMinus > 0) data[key].purchases += t.amountWithMinus; else if (t.amountWithMinus < 0) data[key].payments += Math.abs(t.amountWithMinus); }}); const keys = Object.keys(data).sort(); return { labels: keys.map(k => new Date(`${k}-02`).toLocaleDateString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US',{year:'numeric',month:'long',calendar: 'gregory' })), purchases: keys.map(k => data[k].purchases), payments: keys.map(k => data[k].payments), rawData: keys.map(k => ({month: k, ...data[k]})) }; }
+        function calculateAgingData(transactions) { const aging = {'1-30 days': 0, '31-60 days': 0, '61-90 days': 0, '+90 days': 0 }; const supplierData = transactions.reduce((acc, t) => { if (!acc[t.supplier]) { acc[t.supplier] = { purchases: [], payments: 0 }; } if (t.amountWithMinus > 0) { acc[t.supplier].purchases.push(t); } else { acc[t.supplier].payments += Math.abs(t.amountWithMinus); } return acc; }, {}); for (const supplierName in supplierData) { const data = supplierData[supplierName]; data.purchases.sort((a, b) => (a.rawDate || 0) - (b.rawDate || 0)); const totalPurchases = data.purchases.reduce((sum, p) => sum + p.amountWithMinus, 0); const outstandingBalance = totalPurchases - data.payments; if (outstandingBalance <= 0) continue; let amountToReconcile = totalPurchases - outstandingBalance; for (const invoice of data.purchases) { if (!invoice.dueStatus?.includes('متأخر') || invoice.payStatus?.includes('تم السداد')) continue; let overdueAmount = invoice.amountWithMinus; if (amountToReconcile > 0) { const appliedPayment = Math.min(overdueAmount, amountToReconcile); overdueAmount -= appliedPayment; amountToReconcile -= appliedPayment; } if (overdueAmount > 0) { const daysOverdue = parseInt(invoice.dueStatus.match(/(\d+)/)?.[1] || '0'); if (daysOverdue <= 30) aging['1-30 days'] += overdueAmount; else if (daysOverdue <= 60) aging['31-60 days'] += overdueAmount; else if (daysOverdue <= 90) aging['61-90 days'] += overdueAmount; else aging['+90 days'] += overdueAmount; } } } return aging; }
+        function calculatePaymentPerformanceData(transactions) { const p={'onTime':0,'late1-30':0,'late31-60':0,'late60+':0}; transactions.forEach(t => { if(t.amountWithMinus>0) { const isPaid=t.payStatus?.includes('تم السداد'), isOverdue=t.dueStatus?.includes('متأخر'); if(isPaid&&!isOverdue)p['onTime']++; else if(!isPaid&&isOverdue){ const d=parseInt(t.dueStatus.match(/(\d+)/)?.[1]||'0'); if(d<=30)p['late1-30']++; else if(d<=60)p['late31-60']++; else p['late60+']++; }}}); return p; }
+        function calculateRiskDistribution(summaries) { return summaries.reduce((a, s) => {a[s.riskLevel]=(a[s.riskLevel]||0)+1; return a;}, {low:0,medium:0,high:0}); }
+        function createLinkCell(text, link) { if (!link || !text) return text || ''; return `<span onclick='openMiniWindow("${link}")' class="text-blue-600 hover:text-blue-800 underline cursor-pointer">${text}</span>`; }
+        function updateSuppliersTable(summaries) {
+            const search = document.getElementById('searchInput').value.toLowerCase();
+            const filteredSummaries = summaries.filter(s => s.supplier.toLowerCase().includes(search));
+            const tableBody = document.getElementById('suppliersTableBody');
+            if (filteredSummaries.length === 0) { tableBody.innerHTML = `<tr><td colspan="8" class="p-8 text-center text-gray-500">${translate('noResults')}</td></tr>`; return; }
+            tableBody.innerHTML = filteredSummaries.map((s, i) => {
+                const riskClass = s.riskLevel === 'high' ? 'status-critical' : s.riskLevel === 'medium' ? 'status-warning' : 'status-good';
+                const balanceClass = s.outstandingBalance > 0 ? 'text-red-600 bg-red-50' : 'text-green-600 bg-green-50';
+                return `<tr class="table-row"><td class="p-2 md:p-4 text-sm">${i + 1}</td><td class="p-2 md:p-4 text-sm font-medium">${s.supplier}</td><td class="p-2 md:p-4 text-sm font-mono">${formatCurrency(s.totalPurchaseAmount)}</td><td class="p-2 md:p-4 text-sm font-mono text-green-700">${formatCurrency(s.totalPayments)}</td><td class="p-2 md:p-4 text-sm font-mono"><span class="px-2 py-1 rounded-full text-xs ${balanceClass}">${formatCurrency(s.outstandingBalance)}</span></td><td class="p-2 md:p-4 text-sm text-center"><div>${formatNumber(s.transactionCount)}</div><div class="text-xs text-gray-500 whitespace-nowrap"><span class="text-red-600">${translate('invoiceShort')}: ${formatNumber(s.liyaCount)}</span> | <span class="text-green-600">${translate('paymentShort')}: ${formatNumber(s.diyaCount)}</span></div></td><td class="p-2 md:p-4 text-sm"><div class="flex items-center"><span class="supplier-status-indicator ${riskClass}"></span><span style="margin-right: 4px;">${translate(s.riskLevel)}</span></div></td><td class="p-2 md:p-4 text-sm"><button onclick="showSupplierDetails('${s.supplier.replace(/'/g, "\\'")}')" class="text-blue-600 hover:underline">${translate('viewDetails')}</button></td></tr>`;
+            }).join('');
+        }
+        function determinePaymentMethod(t) { const id = t.transactionId || ''; if (id.includes('428671******0730')) return 'atmSakuraNL'; if (id.includes('428672******3735')) return 'atmSakuraL'; if (id.includes('428671******1122')) return 'atmSpaceLessNL'; if ((id.toLowerCase()).includes('cash without card')) return 'cashWithoutCard'; return 'bankTransfer'; }
+        function updatePaymentsWithLocalFilters() { let payments = currentFilteredTransactions.filter(t => t.isPayment); const start = document.getElementById('paymentsStartDate').value; const end = document.getElementById('paymentsEndDate').value; const supplierSearch = document.getElementById('paymentsSupplierFilter').value.toLowerCase(); const methodFilter = document.getElementById('paymentMethodFilter').value; if (start) { const startDate = new Date(start); payments = payments.filter(t => t.rawDate && t.rawDate >= startDate); } if (end) { const endDate = new Date(end); endDate.setHours(23, 59, 59, 999); payments = payments.filter(t => t.rawDate && t.rawDate <= endDate); } if (supplierSearch) { payments = payments.filter(t => t.supplier.toLowerCase().includes(supplierSearch)); } if (methodFilter !== 'all') { payments = payments.filter(t => determinePaymentMethod(t) === methodFilter); } renderPaymentsTable(payments); }
+        function renderPaymentsTable(payments) { document.getElementById('paymentsTableBody').innerHTML = payments.length === 0 ? `<tr><td colspan="6" class="p-8 text-center text-gray-500">${translate('noPayments')}</td></tr>` : payments.map(t => `<tr><td class="p-2 md:p-4 text-sm">${t.date}</td><td class="p-2 md:p-4 text-sm">${t.supplier}</td><td class="p-2 md:p-4 text-sm font-mono">${createLinkCell(t.transactionId, t.documentLink)}</td><td class="p-2 md:p-4 text-sm font-mono text-green-600">${formatCurrency(Math.abs(t.amountWithMinus))}</td><td class="p-2 md:p-4 text-sm"><span class="px-2 py-1 text-xs rounded-full status-paid">${translate('paid')}</span></td><td class="p-2 md:p-4 text-sm">${translate(determinePaymentMethod(t))}</td></tr>`).join(''); }
+        function calculateInvoiceStatusData(transactions) { return transactions.reduce((a,t)=>{if(t.amountWithMinus>0){if(t.payStatus?.includes('تم السداد'))a['paid']=(a['paid']||0)+1;else if(t.dueStatus?.includes('متأخر'))a['overdue']=(a['overdue']||0)+1;else a['dueSoon']=(a['dueSoon']||0)+1;}return a;},{}); }
+        function calculateAmountDistribution(transactions) { return transactions.reduce((a,t)=>{if(t.amountWithMinus>0){if(t.amount<1000)a['<1k']=(a['<1k']||0)+1;else if(t.amount<10000)a['1k-10k']=(a['1k-10k']||0)+1;else a['>10k']=(a['>10k']||0)+1;}return a;},{'<1k':0,'1k-10k':0,'>10k':0}); }
+        function calculatePaymentDaysData(summaries) { const top=summaries.filter(s=>s.averagePaymentDays>0).slice(0,5); return {labels:top.map(s=>s.supplier.substring(0,15)),values:top.map(s=>s.averagePaymentDays)}; }
+        function switchTab(t){document.querySelectorAll('.tab-button').forEach(b=>b.classList.remove('active'));document.getElementById(t+'Tab').classList.add('active');document.querySelectorAll('.content-section').forEach(s=>s.classList.add('hidden'));document.getElementById(t+'Section').classList.remove('hidden'); const isSupplier = t === 'suppliers'; document.getElementById('searchSection').style.display = isSupplier ? 'block' : 'none'; if (!isSupplier) document.getElementById('searchInput').value = ''; applyFiltersAndRedraw();}
+        function handleSearch() { if (document.querySelector('.tab-button.active').id === 'suppliersTab') updateSuppliersTable(currentFilteredSummaries); }
+        function clearSearch() { document.getElementById('searchInput').value = ''; handleSearch(); }
+        let currentModalSupplier = null;
+        function showSupplierDetails(supplierName){ const fullSupplierData = processData(allData.filter(t => t.supplier === supplierName))[0]; if(!fullSupplierData) return; currentModalSupplier = fullSupplierData; document.getElementById('modalSupplierName').textContent = currentModalSupplier.supplier; document.getElementById('modalStartDate').value=''; document.getElementById('modalEndDate').value=''; renderModalContent(currentModalSupplier.transactions); document.getElementById('modalApplyFilter').onclick=()=>{ const s=document.getElementById('modalStartDate').value,e=document.getElementById('modalEndDate').value; const f=currentModalSupplier.transactions.filter(t=>{ if(!t.rawDate)return false; const sd=s?new Date(s):null,ed=e?new Date(e):null; if(sd&&t.rawDate<sd)return false; if(ed){ed.setHours(23,59,59,999);if(t.rawDate>ed)return false} return true; }); renderModalContent(f,s,e) }; document.getElementById('supplierModal').classList.remove('hidden'); }
+        function renderModalContent(tx,startStr,endStr){const sup=currentModalSupplier;const allSorted=[...sup.transactions].sort((a,b)=>(a.rawDate||0)-(b.rawDate||0));let open=0;if(startStr){const before=[...allSorted].filter(t=>t.rawDate&&t.rawDate<new Date(startStr));if(before.length>0)open=before.pop().outstandingBalance}let close=tx.length>0?[...tx].sort((a,b)=>(a.rawDate||0)-(b.rawDate||0)).pop().outstandingBalance:open;if(!startStr&&allSorted.length>0)close=allSorted[allSorted.length-1].outstandingBalance;document.getElementById('modalOpeningBalance').textContent=formatCurrency(open);document.getElementById('modalClosingBalance').textContent=formatCurrency(close);const p=tx.reduce((s,t)=>s+(t.amountWithMinus>0?t.amountWithMinus:0),0);const d=tx.reduce((s,t)=>s+(t.amountWithMinus<0?Math.abs(t.amountWithMinus):0),0);document.getElementById('modalStats').innerHTML=`<div class="bg-gray-50 p-3 rounded-lg text-center"><h4 class="text-sm font-semibold">${translate('totalPurchases')}</h4><p class="text-xl font-bold">${formatCurrency(p)}</p></div><div class="bg-gray-50 p-3 rounded-lg text-center"><h4 class="text-sm font-semibold">${translate('totalPayments')}</h4><p class="text-xl font-bold text-green-600">${formatCurrency(d)}</p></div><div class="bg-gray-50 p-3 rounded-lg text-center"><h4 class="text-sm font-semibold">${translate('totalTransactions')}</h4><p class="text-xl font-bold">${formatNumber(tx.length)}</p></div><div class="bg-gray-50 p-3 rounded-lg text-center"><h4 class="text-sm font-semibold">${translate('risk')}</h4><p class="text-xl font-bold text-yellow-600">${translate(sup.riskLevel)}</p></div>`;document.getElementById('modalTransactionsBody').innerHTML=tx.length===0?`<tr><td colspan="6" class="p-8 text-center text-gray-500">${translate('noTransactions')}</td></tr>`:[...tx].sort((a,b)=>(a.rawDate||0)-(b.rawDate||0)).map(t=>`<tr><td class="p-1 md:p-2 text-sm">${t.date||''}</td><td class="p-1 md:p-2 text-sm">${t.description}</td><td class="p-1 md:p-2 text-sm font-mono">${createLinkCell(t.transactionId, t.documentLink)}</td><td class="p-1 md:p-2 text-sm font-mono"><span class="px-2 py-1 rounded ${t.amountWithMinus>0?'text-red-600 bg-red-50':'text-green-600 bg-green-50'}">${formatCurrency(t.amountWithMinus)}</span></td><td class="p-1 md:p-2 text-sm"><span class="px-2 py-1 text-xs rounded-full ${getStatusClass(t.dueStatus)}">${translateStatus(t.dueStatus)}</span></td><td class="p-1 md:p-2 text-sm font-mono">${formatCurrency(t.outstandingBalance)}</td></tr>`).join('');const payload={openingBalance:open,closingBalance:close,periodPurchases:p,periodPayments:d};document.getElementById('exportModalExcelBtn').onclick=()=>exportModalData(sup,'excel',tx,payload);document.getElementById('exportModalCsvBtn').onclick=()=>exportModalData(sup,'csv',tx,payload);document.getElementById('exportModalPdfBtn').onclick=()=>exportModalData(sup,'pdf',tx,payload);}
+        function closeModal(){document.getElementById('supplierModal').classList.add('hidden');currentModalSupplier=null;}
+        function openMiniWindow(url) { const miniWindow = document.getElementById('miniWindow'); const iframe = document.getElementById('miniWindowFrame'); const embedUrl = url.replace("/view", "/preview").replace("?usp=sharing", ""); iframe.src = embedUrl; miniWindow.classList.remove('hidden'); }
+        function closeMiniWindow() { const miniWindow = document.getElementById('miniWindow'); const iframe = document.getElementById('miniWindowFrame'); iframe.src = ''; miniWindow.classList.add('hidden'); }
+        function exportData(data,fileName,headers,format,extraInfo={}){if(format!=='pdf'){const mapped=data.map(r=>Object.keys(headers).reduce((o,k)=>({...o,[headers[k]]:r[k]}),{}));const ws=XLSX.utils.json_to_sheet(mapped);const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'Data');if(format==='excel')XLSX.writeFile(wb,`${fileName}.xlsx`);else{const blob=new Blob(["\uFEFF"+XLSX.utils.sheet_to_csv(ws)],{type:'text/csv;charset=utf-8;'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=`${fileName}.csv`;a.click();URL.revokeObjectURL(url)}}else{const reportTitle=extraInfo.isAccountStatement?`${translate('accountStatementFor')}<bdi>${extraInfo.supplierName}</bdi>`:fileName.replace(/_/g,' ');const period=extraInfo.isAccountStatement?`${translate('periodFrom')} ${extraInfo.startDate||translate('beginning')} ${translate('periodTo')} ${extraInfo.endDate||translate('end')}`:`${translate('reportDate')} ${new Date().toLocaleDateString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US',{calendar: 'gregory' })}`;let summaryTable='';if(extraInfo.isAccountStatement){summaryTable=`<table class="summary-table"><tr><td>${translate('openingBalance')}</td><td class="numeric">${formatCurrency(extraInfo.openingBalance)}</td></tr><tr><td>${translate('totalPurchases')}</td><td class="numeric">${formatCurrency(extraInfo.periodPurchases)}</td></tr><tr><td>${translate('totalPayments')}</td><td class="numeric">${formatCurrency(extraInfo.periodPayments)}</td></tr><tr class="total"><td>${translate('closingBalance')}</td><td class="numeric">${formatCurrency(extraInfo.closingBalance)}</td></tr></table>`}const mainTable=`<table class="main-table"><thead><tr>${Object.values(headers).map(h=>`<th>${h}</th>`).join('')}</tr></thead><tbody>${data.map(row=>`<tr>${Object.keys(headers).map(key=>{const value=row[key]??'';const isNumeric=/amount|balance|رصيد|مبلغ|إجمالي|cost|price|total|tax|تكلفة|سعر|ضريبة/i.test(headers[key]);const isMono=/id|رقم|code|كود/i.test(headers[key]);let className=isNumeric?'numeric':'';if(isMono)className+=' mono';return`<td class="${className}">${value}</td>`}).join('')}</tr>`).join('')}</tbody></table>`;const html=`<html><head><meta charset="UTF-8"><link href="https://fonts.googleapis.com/css2?family=Dubai:wght@400;700&display=swap" rel="stylesheet"><style>body{font-family:'Dubai',sans-serif;direction:${currentLang==='ar'?'rtl':'ltr'};color:#333;}.report-container{padding:25px;border:10px solid #f0e1cd;}.header{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:15px;border-bottom:3px solid #ea8990;}.header img{width:70px;height:70px;border-radius:50%;}.titles{text-align:${currentLang==='ar'?'right':'left'};}.titles h1{font-family:'Dubai',sans-serif;color:#284b44;font-size:26px;font-weight:700;}.titles p{font-size:12px;color:#956c2a;margin:5px 0 0 0;}bdi{display:inline-block;}.summary-table{width:50%;margin-top:25px;border-collapse:collapse;margin-left:auto;margin-right:0;font-size:10px;}.summary-table td{padding:8px;border:1px solid #f0e1cd;}.summary-table .total td{font-weight:bold;background-color:#f0e1cd;color:#284b44;}.main-table{width:100%;border-collapse:collapse;margin-top:20px;font-size:8px;}.main-table th,.main-table td{border:1px solid #e2e8f0;padding:6px;text-align:${currentLang==='ar'?'right':'left'};vertical-align:middle;}.main-table th{background-color:#284b44;color:white;font-weight:bold;font-size:11px;}.main-table tbody tr:nth-child(even){background-color:#f0e1cd50;}.numeric{text-align:${currentLang==='ar'?'left':'right'};direction:ltr;}.mono{font-family:monospace;}.footer{text-align:center;font-size:9px;color:#956c2a;margin-top:25px;padding-top:10px;border-top:1px solid #f0e1cd;}</style></head><body><div class="report-container"><div class="header"><div class="titles"><h1>${translate('Sakura Factory Management')||'إدارة مصنع ساكورا'}</h1><p>${reportTitle}</p><p>${period}</p></div><img src="${sakuraLogoUrl}"></div>${summaryTable}${mainTable}<div class="footer"><p>${translate('This report was generated by the Sakura Supplier Accounts Management System.')||'هذا التقرير تم إنشاؤه بواسطة نظام Sakura لإدارة حسابات الموردين'}</p></div></div></body></html>`;const element=document.createElement('div');element.innerHTML=html;const opt={margin:0,filename:`${fileName}.pdf`,image:{type:'jpeg',quality:1.0},html2canvas:{scale:3,useCORS:true,crossOrigin:'anonymous'},jsPDF:{unit:'mm',format:'a3',orientation:'landscape'}};html2pdf().from(element).set(opt).save()}}
+        function exportSuppliersData(format){const filename = translate('suppliers_summary_report'); exportData(currentFilteredSummaries,filename,{supplier:translate('supplierName'),totalPurchaseAmount:translate('totalPurchases'),totalPayments:translate('totalPayments'),outstandingBalance:translate('outstandingBalance'),riskLevel:translate('riskLevel')},format)}
+        function exportPaymentsData(format){const p=currentFilteredTransactions.filter(t=>t.isPayment).map(t=>({...t,amount:formatCurrency(Math.abs(t.amountWithMinus))}));exportData(p,translate('payments')||'Payments_List',{date:translate('date'),supplier:translate('supplier'),transactionId:translate('transactionId'),amount:translate('paymentAmount')},format)}
+        function exportInvoicesData(format){ const headers={supplier:translate('supplier'),destination:translate('destination')||'Destination',company:translate('company')||'Company',tax:translate('tax'),sub_total:translate('sub_total')||'Sub Total',amount:translate('amount'),date:translate('date'),paymentType:translate('paymentType')||'Payment Type',invoiceCategory:translate('invoiceCategory')||'Invoice Category',supplierCategory:translate('supplierCategory')||'Supplier Category',dueDate:translate('dueDate'),agreementDuration:translate('agreementDuration')||'Agreement Duration',physicalPORef:translate('physicalPORef')||'Physical PO Ref',foodicsPORef:translate('foodicsPORef')||'Foodics PO Ref',atmCard:translate('atmCard')||'ATM Card'}; exportData(currentFilteredInvoices,translate('invoices')||'Invoices_List',headers,format); }
+        function exportPurchasesData(format) { const dataToExport = currentFilteredPurchases.map(item => ({ itemName: currentLang === 'ar' && item.itemNameAr && item.itemNameAr.trim() !== '' ? item.itemNameAr : item.itemName, code: item.code, unit: item.unit, itemType: item.itemType, quantity: formatNumber(item.quantity), unitCost: formatCurrency(item.unitCost), additionalCost: formatCurrency(item.additionalCost), totalBeforeTax: formatCurrency(item.totalBeforeTax), tax: formatCurrency(item.tax), totalAfterTax: formatCurrency(item.totalAfterTax) })); const headers={itemName:translate('Name'),code:translate('Code'),unit:translate('Unit'),itemType:translate('Item Type'),quantity:translate('Quantity'),unitCost:translate('Unit Cost'),additionalCost:translate('Additional Cost'),totalBeforeTax:translate('Total Before Tax'),tax:translate('Tax'),totalAfterTax:translate('Total After Tax')}; exportData(dataToExport,translate('purchases')||'purchases_report',headers,format); }
+        function exportModalData(sup,format,tx,payload){const h={date:translate('date'),description:translate('description'),transactionId:translate('transactionId'),amountWithMinus:translate('amount'),dueStatus:translate('status'),outstandingBalance:translate('cumulativeBalance')};const extra={isAccountStatement:!0,supplierName:sup.supplier,startDate:document.getElementById('modalStartDate').value,endDate:document.getElementById('modalEndDate').value,...payload};const filename = `${translate('accountStatementFor')}${sup.supplier}`.replace(': ','_'); exportData(tx.map(t=>({...t,amountWithMinus:formatCurrency(t.amountWithMinus),outstandingBalance:formatCurrency(t.outstandingBalance)})),filename,h,format,extra)}
+        function handleReportGeneration(type){switch(type){case'monthlyDues':const unpaid=currentFilteredTransactions.filter(t=>t.amountWithMinus>0&&!t.payStatus?.includes('تم السداد'));exportData(unpaid,translate('dues_report'),{supplier:translate('supplier'),date:translate('date'),dueDate:translate('dueDate'),amountWithMinus:translate('dueAmount')},'excel');break;case'supplierPerformance':exportSuppliersData('excel');break;case'cashflow':const d=calculateMonthlyData(currentFilteredTransactions).rawData;exportData(d,translate('cash_flow_report'),{month:translate('month'),purchases:translate('purchases'),payments:translate('payments')},'excel');break;}}
+        function getStatusClass(s){if(!s)return'bg-gray-100 text-gray-800';if(s.includes('متأخر'))return'status-overdue';if(s.includes('مستحق'))return'status-due-soon';if(s.includes('تم الدفع')||s.includes('تم السداد')||s.includes('Paid'))return'status-paid';return'bg-gray-100 text-gray-800'}
+        function formatCurrency(n){const num=n||0;if(currentLang==='ar'){return`${new Intl.NumberFormat('ar-SA',{minimumFractionDigits:2,maximumFractionDigits:2}).format(num)}\u00A0ر.س.`;}return new Intl.NumberFormat('en-US',{style:'currency',currency:'SAR',minimumFractionDigits:2,maximumFractionDigits:2}).format(num);}
+        function formatNumber(n){const locale=currentLang==='ar'?'ar-SA':'en-US';return new Intl.NumberFormat(locale).format(n||0)}
+        function cleanAmount(v){let s=String(v||'0');s=s.replace(/[٠-٩]/g,d=>'٠١٢٣٤٥٦٧٨٩'.indexOf(d)).replace(/٬/g,'').replace(/٫/g,'.');const c=s.replace(/[^\d.-]/g,'');return parseFloat(c)||0}
+        const style=document.createElement('style');style.textContent=`.tab-button.active{background-color:#284b44;color:white;transform:translateY(-2px);box-shadow:0 10px 25px rgba(40,75,68,0.4)}.tab-button:not(.active){color:#6b7280;background:transparent}.tab-button:not(.active):hover{color:#374151;background:#f9fafb}`;document.head.appendChild(style);
+        
+        function handleChartExport(chartName, format) {
+            const chart = charts[chartName]; if (!chart) return;
+            const chartTitle = chart.canvas.closest('.bg-white').querySelector('h3').textContent;
+            if (format === 'pdf') { exportChartToPdf(chart.canvas.id, chartTitle); return; }
+            let data, headers, fileName;
+            switch (chartName) {
+                case 'cashFlow': case 'timeline': const d=calculateMonthlyData(currentFilteredTransactions); data=d.labels.map((l,i)=>({month:l,purchases:d.purchases[i],payments:d.payments[i]})); headers={month:translate('month'),purchases:translate('purchases'),payments:translate('payments')}; fileName=translate('monthlyCashFlow'); break;
+                case 'aging': const ad=calculateAgingData(currentFilteredTransactions); data=Object.keys(ad).map(k=>({category:translate(k),amount:ad[k]})); headers={category:translate('category'),amount:translate('amount')}; fileName=translate('agingAnalysis'); break;
+                case 'paymentPerformance': const pd=calculatePaymentPerformanceData(currentFilteredTransactions); data=Object.keys(pd).map(k=>({status:translate(k),count:pd[k]})); headers={status:translate('status'),count:translate('count')}; fileName=translate('paymentPerformance'); break;
+                case 'supplierDistribution': const sd=calculateRiskDistribution(currentFilteredSummaries); data=Object.keys(sd).map(k=>({riskLevel:translate(k),count:sd[k]})); headers={riskLevel:translate('riskLevel'),count:translate('count')}; fileName=translate('supplierDistribution'); break;
+                case 'topSuppliers': data=[...currentFilteredSummaries].sort((a,b)=>b.outstandingBalance-a.outstandingBalance).slice(0,10).map(s=>({supplier:s.supplier,outstandingBalance:s.outstandingBalance})); headers={supplier:translate('supplier'),outstandingBalance:translate('outstandingBalance')}; fileName=translate('top10SuppliersByOutstanding'); break;
+                case 'invoiceStatus': const isd=calculateInvoiceStatusData(currentFilteredTransactions); data=Object.keys(isd).map(k=>({status:translate(k),count:isd[k]})); headers={status:translate('status'),count:translate('count')}; fileName=translate('invoiceStatus'); break;
+                case 'amountDistribution': const amd=calculateAmountDistribution(currentFilteredTransactions); data=[{range:translate('smallAmount'),count:amd['<1k']},{range:translate('mediumAmount'),count:amd['1k-10k']},{range:translate('largeAmount'),count:amd['>10k']}]; headers={range:translate('range'),count:translate('count')}; fileName=translate('amountDistribution'); break;
+                case 'paymentDays': const pdd=calculatePaymentDaysData(currentFilteredSummaries); data=pdd.labels.map((l,i)=>({supplier:l,avgDays:pdd.values[i]})); headers={supplier:translate('supplier'),avgDays:translate('averagePaymentDays')}; fileName=translate('averagePaymentDays'); break;
+            }
+            if (data && headers && fileName) { exportData(data, fileName.replace(/ /g, '_'), headers, format); }
+        }
+        function exportChartToPdf(canvasId, title) { const canvas = document.getElementById(canvasId); if (!canvas) return; const imgData = canvas.toDataURL('image/jpeg', 1.0); const html = `<div style="font-family: 'Cairo', sans-serif; direction: ${currentLang === 'ar' ? 'rtl' : 'ltr'}; text-align: center; padding: 20px;"><h2 style="font-size: 24px; color: #284b44;">${title}</h2><p style="font-size: 12px; color: #666;">${translate('reportDate')} ${new Date().toLocaleDateString(currentLang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US',{calendar: 'gregory' })}</p><img src="${imgData}" style="width: 100%; max-width: 800px; margin: 20px auto; border: 1px solid #ddd; border-radius: 8px;" /></div>`; const element = document.createElement('div'); element.innerHTML = html; const opt = { margin: 10, filename: `${title.replace(/ /g, '_')}.pdf`, image: { type: 'jpeg', quality: 0.98 }, html2canvas: { scale: 2, useCORS: true }, jsPDF: { unit: 'mm', format: 'a3', orientation: 'landscape' } }; html2pdf().from(element).set(opt).save(); }
+        // Add this code at the very end, just before the closing tag
+try {
+    if (window.parent) {
+        window.parent.postMessage({
+            type: 'PURCHASE_DATA',
+            payload: allPurchasesData // This variable holds all the purchase records
+        }, '*');
+    }
+} catch (e) {
+    console.error("Could not post message to parent window:", e);
+}
+  function switchLanguage(lang, isInitial = false) {
+    currentLang = lang;
+    if (!isInitial) localStorage.setItem('lang', lang);
+
+    document.documentElement.lang = lang;
+    document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+
+    document.querySelectorAll('.translatable').forEach(el => {
+        const span = el.querySelector('span');
+        const targetTextElement = span || el;
+
+        if (isInitial && targetTextElement.textContent.trim()) {
+             el.dataset.ar = targetTextElement.textContent.trim();
+        }
+
+        if (el.dataset[lang]) {
+            const iconHTML = el.querySelector('i')?.outerHTML || '';
+            targetTextElement.innerHTML = iconHTML + ' ' + el.dataset[lang];
+        } else if (el.dataset.en) {
+            const iconHTML = el.querySelector('i')?.outerHTML || '';
+            targetTextElement.innerHTML = iconHTML + ' ' + el.dataset.en;
+        }
+    });
+
+    if (document.getElementById('searchInput')) {
+        document.getElementById('searchInput').placeholder = translate('searchSupplierPlaceholder');
+        document.getElementById('paymentsSupplierFilter').placeholder = translate('searchForSupplier');
+        document.getElementById('invoiceSupplierFilter').placeholder = translate('searchForSupplier');
+        document.getElementById('purchaseSupplierFilter').placeholder = translate('searchForSupplier');
+        document.getElementById('purchaseItemFilter').placeholder = translate('searchForItem');
+    }
+
+    if(document.getElementById('currentDate')) {
+         document.getElementById('currentDate').textContent = new Date().toLocaleDateString(lang === 'ar' ? 'ar-SA-u-nu-arab' : 'en-US', { calendar: 'gregory', year: 'numeric', month: 'long', day: 'numeric' });
+    }
+
+    if (!isInitial && allData.length > 0) {
+        populatePurchaseTypeFilter();
+        applyFiltersAndRedraw();
+    }
+}
+</script>
+</body>
+</html>
