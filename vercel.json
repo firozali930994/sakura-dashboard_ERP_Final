@@ -1,0 +1,32 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "backend/src/server.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "SakuraPortal/**",
+      "use": "@vercel/static"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "/backend/src/server.js"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/SakuraPortal/$1"
+    },
+    {
+      "src": "/",
+      "dest": "/SakuraPortal/index.html"
+    }
+  ],
+  "functions": {
+    "backend/src/server.js": {
+      "maxDuration": 30
+    }
+  }
+}

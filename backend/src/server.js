@@ -240,6 +240,11 @@ app.put('/api/me', authMiddleware, upload.single('photo'), (req, res) => {
 const portalDir = path.join(__dirname, '../../SakuraPortal');
 app.use(express.static(portalDir));
 
+// Serve index.html for root route
+app.get('/', (req, res) => {
+  res.sendFile(path.join(portalDir, 'index.html'));
+});
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Sakura ERP backend running on http://localhost:${PORT}`);
