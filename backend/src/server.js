@@ -1,7 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import Database from 'better-sqlite3';
+// import Database from 'better-sqlite3'; // Removed for compatibility
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import path from 'path';
@@ -18,9 +18,33 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Database setup
-const db = new Database(path.join(__dirname, '../../data.db'));
-db.pragma('journal_mode = WAL');
+// Simple JSON database setup
+const dbFile = path.join(__dirname, '../../data.json');
+let db = { users: [], roles: [] };
+
+// Load database
+if (fs.existsSync(dbFile)) {
+  db = JSON.parse(fs.readFileSync(dbFile, 'utf8'));
+} else {
+  // Initialize with default data
+  db = {
+    users: [],
+    roles: [
+      { id: 1, name: 'admin' },
+      { id: 2, name: 'staff' }
+    ]
+  };
+  fs.writeFileSync(dbFile, JSON.stringify(db, null, 2));
+}
+
+// Helper functions
+const saveDb = () => {
+  fs.writeFileSync(dbFile, JSON.stringify(db, null, 2));
+};
+
+const findUser = (id) => db.users.find(u => u.id === id);
+const findUserByEmail = (email) => db.users.find(u => u.email === email);
+const findRole = (id) => db.roles.find(r => r.id === id);
 
 // Create tables
 db.exec(`

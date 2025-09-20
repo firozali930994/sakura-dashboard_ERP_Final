@@ -3,15 +3,14 @@
   "version": "1.0.0",
   "description": "Sakura ERP Backend API",
   "type": "module",
-  "main": "src/server.js",
+  "main": "src/server-simple.js",
   "scripts": {
-    "dev": "nodemon src/server.js",
-    "start": "node src/server.js",
+    "dev": "nodemon src/server-simple.js",
+    "start": "node src/server-simple.js",
     "build": "echo 'Build completed'"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
-    "better-sqlite3": "^11.6.0",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
