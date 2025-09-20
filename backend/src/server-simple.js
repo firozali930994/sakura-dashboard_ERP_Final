@@ -36,6 +36,23 @@ if (fs.existsSync(dbFile)) {
   fs.writeFileSync(dbFile, JSON.stringify(db, null, 2));
 }
 
+// Create default admin user if none exists
+const adminExists = db.users.some(user => user.role_id === 1);
+if (!adminExists) {
+  const adminUser = {
+    id: 1,
+    name: 'Admin',
+    email: 'admin@sakura.com',
+    password_hash: '$2a$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', // password: "password"
+    role_id: 1,
+    photo: null,
+    created_at: new Date().toISOString()
+  };
+  db.users.push(adminUser);
+  saveDb();
+  console.log('Default admin user created: admin@sakura.com / password');
+}
+
 // Helper functions
 const saveDb = () => {
   fs.writeFileSync(dbFile, JSON.stringify(db, null, 2));
@@ -236,14 +253,20 @@ app.put('/api/me', authenticateToken, upload.single('photo'), async (req, res) =
   }
 });
 
-// Serve static files
-const portalDir = path.join(__dirname, '../../SakuraPortal');
-app.use(express.static(portalDir));
+// Serve uploads only (no frontend files)
 app.use('/uploads', express.static(uploadsDir));
 
-// Serve index.html for root route
+// API-only response for root route
 app.get('/', (req, res) => {
-  res.sendFile(path.join(portalDir, 'index.html'));
+  res.json({
+    message: 'Sakura ERP Backend API',
+    version: '1.0.0',
+    endpoints: {
+      auth: '/api/auth/login, /api/auth/signup',
+      profile: '/api/me',
+      uploads: '/uploads'
+    }
+  });
 });
 
 const PORT = process.env.PORT || 3000;
